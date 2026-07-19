@@ -1,8 +1,12 @@
 package com.livequiz.backend.common.web;
 
 import com.livequiz.backend.common.exception.BadRequestException;
+import com.livequiz.backend.common.exception.ConflictException;
 import com.livequiz.backend.common.exception.NotFoundException;
+import com.livequiz.backend.session.domain.QuizSession;
 import jakarta.servlet.http.HttpServletRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -14,6 +18,8 @@ import java.util.List;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
     @ExceptionHandler(NotFoundException.class)
     public ResponseEntity<ApiError> handleNotFound(NotFoundException ex, HttpServletRequest req) {
         return build(HttpStatus.NOT_FOUND, ex.getMessage(), req);
@@ -22,6 +28,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(BadRequestException.class)
     public ResponseEntity<ApiError> handleBadRequest(BadRequestException ex, HttpServletRequest req) {
         return build(HttpStatus.BAD_REQUEST, ex.getMessage(), req);
+    }
+
+    @ExceptionHandler({ConflictException.class, QuizSession.IllegalSessionState.class})
+    public ResponseEntity<ApiError> handleConflict(RuntimeException ex, HttpServletRequest req) {
+        return build(HttpStatus.CONFLICT, ex.getMessage(), req);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -40,6 +51,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiError> handleUnexpected(Exception ex, HttpServletRequest req) {
+        log.error("Unhandled exception for {} {}", req.getMethod(), req.getRequestURI(), ex);
         return build(HttpStatus.INTERNAL_SERVER_ERROR, "Unexpected error", req);
     }
 
