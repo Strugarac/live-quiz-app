@@ -1,0 +1,29 @@
+# Local development infrastructure.
+# Start with:  docker compose up -d
+# Stop with:   docker compose down   (add -v to also wipe the data volume)
+services:
+  postgres:
+    image: postgres:16
+    container_name: livequiz-postgres
+    environment:
+      POSTGRES_DB: livequiz
+      POSTGRES_USER: livequiz
+      POSTGRES_PASSWORD: livequiz
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U livequiz -d livequiz" ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7
+    container_name: livequiz-redis
+    ports:
+      - "6379:6379"
+
+volumes:
+  pgdata:
