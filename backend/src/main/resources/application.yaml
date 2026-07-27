@@ -19,5 +19,21 @@ server:
 # Application settings.
 # join-base-url: frontend join page; the session join token is appended, and the
 # resulting URL is what the frontend renders as a QR code for participants.
+#
+# websocket.broker.mode: relay = broadcasts go through RabbitMQ's STOMP port, so several
+#   backend instances can host the same session. Requires the rabbitmq service from
+#   docker-compose.yml to be running. Set to `simple` for Spring's in-memory broker
+#   (single instance, no RabbitMQ needed).
 app:
   join-base-url: ${JOIN_BASE_URL:http://localhost:5173/join}
+  websocket:
+    allowed-origins:
+      - http://localhost:5173
+      - http://localhost:3000
+    broker:
+      mode: ${WS_BROKER_MODE:relay}
+      host: ${RABBITMQ_HOST:localhost}
+      port: ${RABBITMQ_STOMP_PORT:61613}
+      virtual-host: ${RABBITMQ_VHOST:/}
+      username: ${RABBITMQ_USERNAME:livequiz}
+      password: ${RABBITMQ_PASSWORD:livequiz}

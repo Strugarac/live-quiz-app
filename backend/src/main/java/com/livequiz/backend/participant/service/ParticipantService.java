@@ -2,6 +2,10 @@ package com.livequiz.backend.participant.service;
 
 import com.livequiz.backend.common.exception.ConflictException;
 import com.livequiz.backend.common.exception.NotFoundException;
+import com.livequiz.backend.live.dto.LiveEventType;
+import com.livequiz.backend.live.dto.ParticipantJoinedPayload;
+import com.livequiz.backend.live.service.LiveEventPublisher;
+import com.livequiz.backend.live.service.LiveMapper;
 import com.livequiz.backend.participant.domain.Participant;
 import com.livequiz.backend.participant.dto.JoinInfoResponse;
 import com.livequiz.backend.participant.dto.JoinRequest;
@@ -28,19 +32,25 @@ public class ParticipantService {
     private final ParticipantTokenGenerator tokenGenerator;
     private final ParticipantMapper mapper;
     private final CurrentUserProvider currentUser;
+    private final LiveEventPublisher publisher;
+    private final LiveMapper liveMapper;
 
     public ParticipantService(ParticipantRepository participantRepository,
                               QuizSessionRepository sessionRepository,
                               ParticipantRegistrationValidator validator,
                               ParticipantTokenGenerator tokenGenerator,
                               ParticipantMapper mapper,
-                              CurrentUserProvider currentUser) {
+                              CurrentUserProvider currentUser,
+                              LiveEventPublisher publisher,
+                              LiveMapper liveMapper) {
         this.participantRepository = participantRepository;
         this.sessionRepository = sessionRepository;
         this.validator = validator;
         this.tokenGenerator = tokenGenerator;
         this.mapper = mapper;
         this.currentUser = currentUser;
+        this.publisher = publisher;
+        this.liveMapper = liveMapper;
     }
 
     @Transactional(readOnly = true)
@@ -63,7 +73,21 @@ public class ParticipantService {
         }
 
         Participant participant = mapper.toNewParticipant(session, request, config, tokenGenerator.generateUnique());
-        return mapper.toResponse(participantRepository.saveAndFlush(participant));
+        participantRepository.saveAndFlush(participant);
+        announceJoin(session, participant);
+        return mapper.toResponse(participant);
+    }
+
+    /**
+     * Tells the lobby someone arrived. Participants get only the headcount; the host also
+     * gets who it was, so the host screen can list the room.
+     */
+    private void announceJoin(QuizSession session, Participant participant) {
+        long participantCount = participantRepository.countBySession_Id(session.getId());
+        publisher.toParticipants(session.getJoinToken(), LiveEventType.PARTICIPANT_JOINED,
+                ParticipantJoinedPayload.countOnly(participantCount));
+        publisher.toHost(session.getJoinToken(), LiveEventType.PARTICIPANT_JOINED,
+                new ParticipantJoinedPayload(participant.getId(), liveMapper.label(participant), participantCount));
     }
 
     @Transactional(readOnly = true)

@@ -47,6 +47,12 @@ public class ProfessorSessionController {
         return sessionService.start(sessionId);
     }
 
+    /** Stops accepting answers and reveals the correct options, without advancing. */
+    @PostMapping("/{sessionId}/close-question")
+    public SessionResponse closeQuestion(@PathVariable UUID sessionId) {
+        return sessionService.closeQuestion(sessionId);
+    }
+
     @PostMapping("/{sessionId}/next")
     public SessionResponse next(@PathVariable UUID sessionId) {
         return sessionService.advance(sessionId);

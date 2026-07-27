@@ -23,6 +23,7 @@ public class SessionMapper {
                 session.getJoinToken(),
                 joinUrl(session.getJoinToken()),
                 session.isStarted() ? session.getCurrentQuestionIndex() : null,
+                session.isQuestionOpen(),
                 session.getQuiz().getQuestions().size(),
                 session.getCreatedAt(),
                 session.getStartedAt(),

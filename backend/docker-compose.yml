@@ -25,5 +25,26 @@ services:
     ports:
       - "6379:6379"
 
+  # STOMP broker behind the live-gameplay WebSocket. The stomp plugin is not enabled in
+  # the image by default, so it is turned on before the server starts.
+  #   61613 = STOMP, 5672 = AMQP, 15672 = management UI (livequiz / livequiz)
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: livequiz-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: livequiz
+      RABBITMQ_DEFAULT_PASS: livequiz
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+      - "61613:61613"
+    command: >
+      bash -c "rabbitmq-plugins enable --offline rabbitmq_stomp && rabbitmq-server"
+    healthcheck:
+      test: [ "CMD", "rabbitmq-diagnostics", "-q", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
 volumes:
   pgdata:
