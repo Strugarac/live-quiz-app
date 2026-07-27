@@ -65,4 +65,15 @@ public class ParticipantAnswer extends BaseEntity {
 
     @Column(name = "submitted_at", nullable = false)
     private Instant submittedAt;
+
+    /**
+     * Whether the answer was correct. Set when the question closes (Step 6 grading).
+     * Null for FREE_TEXT, which is collected but not auto-graded.
+     */
+    @Column(name = "is_correct")
+    private Boolean correct;
+
+    /** Points earned for this answer. Zero until graded, and zero for wrong/ungraded answers. */
+    @Column(nullable = false)
+    private int points;
 }

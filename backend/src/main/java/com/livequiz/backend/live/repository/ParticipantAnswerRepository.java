@@ -12,5 +12,7 @@ public interface ParticipantAnswerRepository extends JpaRepository<ParticipantAn
 
     long countBySession_IdAndQuestion_Id(UUID sessionId, UUID questionId);
 
+    List<ParticipantAnswer> findBySession_IdAndQuestion_Id(UUID sessionId, UUID questionId);
+
     List<ParticipantAnswer> findBySession_IdOrderByQuestionIndexAsc(UUID sessionId);
 }

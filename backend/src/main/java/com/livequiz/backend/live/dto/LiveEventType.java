@@ -20,6 +20,9 @@ public enum LiveEventType {
     /** Private acknowledgement to the participant whose answer was stored. */
     ANSWER_ACCEPTED,
 
+    /** The cumulative leaderboard after a question closed. Host topic only. */
+    LEADERBOARD_UPDATED,
+
     /** The host ended the session. */
     SESSION_ENDED,
 
