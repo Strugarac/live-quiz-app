@@ -11,6 +11,8 @@ import com.livequiz.backend.live.service.LiveMapper;
 import com.livequiz.backend.quiz.domain.Question;
 import com.livequiz.backend.quiz.domain.Quiz;
 import com.livequiz.backend.quiz.repository.QuizRepository;
+import com.livequiz.backend.scoring.dto.LeaderboardPayload;
+import com.livequiz.backend.scoring.service.ScoringService;
 import com.livequiz.backend.session.domain.QuizSession;
 import com.livequiz.backend.session.domain.SessionState;
 import com.livequiz.backend.session.dto.CreateSessionRequest;
@@ -37,6 +39,7 @@ public class SessionService {
     private final ParticipantAnswerRepository answerRepository;
     private final LiveEventPublisher publisher;
     private final LiveMapper liveMapper;
+    private final ScoringService scoringService;
 
     public SessionService(QuizSessionRepository sessionRepository,
                           QuizRepository quizRepository,
@@ -45,7 +48,8 @@ public class SessionService {
                           CurrentUserProvider currentUser,
                           ParticipantAnswerRepository answerRepository,
                           LiveEventPublisher publisher,
-                          LiveMapper liveMapper) {
+                          LiveMapper liveMapper,
+                          ScoringService scoringService) {
         this.sessionRepository = sessionRepository;
         this.quizRepository = quizRepository;
         this.joinTokenGenerator = joinTokenGenerator;
@@ -54,6 +58,7 @@ public class SessionService {
         this.answerRepository = answerRepository;
         this.publisher = publisher;
         this.liveMapper = liveMapper;
+        this.scoringService = scoringService;
     }
 
     public SessionResponse create(CreateSessionRequest request) {
@@ -81,6 +86,12 @@ public class SessionService {
     @Transactional(readOnly = true)
     public SessionResponse get(UUID sessionId) {
         return mapper.toResponse(loadOwned(sessionId));
+    }
+
+    /** The cumulative leaderboard for a session, on demand (also usable after the session ends). */
+    @Transactional(readOnly = true)
+    public LeaderboardPayload leaderboard(UUID sessionId) {
+        return scoringService.leaderboard(loadOwned(sessionId));
     }
 
     public SessionResponse start(UUID sessionId) {
@@ -125,12 +136,15 @@ public class SessionService {
     private void closeCurrentQuestion(QuizSession session) {
         Question question = session.currentQuestion();
         session.closeQuestion();
+        scoringService.gradeQuestion(session, question);
         publisher.toParticipants(session.getJoinToken(), LiveEventType.QUESTION_CLOSED, new QuestionClosedPayload(
                 question.getId(),
                 session.getCurrentQuestionIndex(),
                 liveMapper.correctOptionIds(question),
                 answerRepository.countBySession_IdAndQuestion_Id(session.getId(), question.getId()),
                 session.hasNextQuestion()));
+        publisher.toHost(session.getJoinToken(), LiveEventType.LEADERBOARD_UPDATED,
+                scoringService.leaderboard(session));
     }
 
     private void broadcastQuestionOpened(QuizSession session) {

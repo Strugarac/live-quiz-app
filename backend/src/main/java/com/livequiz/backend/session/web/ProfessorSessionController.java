@@ -1,5 +1,6 @@
 package com.livequiz.backend.session.web;
 
+import com.livequiz.backend.scoring.dto.LeaderboardPayload;
 import com.livequiz.backend.session.dto.CreateSessionRequest;
 import com.livequiz.backend.session.dto.SessionResponse;
 import com.livequiz.backend.session.service.SessionService;
@@ -42,12 +43,16 @@ public class ProfessorSessionController {
         return sessionService.get(sessionId);
     }
 
+    @GetMapping("/{sessionId}/leaderboard")
+    public LeaderboardPayload leaderboard(@PathVariable UUID sessionId) {
+        return sessionService.leaderboard(sessionId);
+    }
+
     @PostMapping("/{sessionId}/start")
     public SessionResponse start(@PathVariable UUID sessionId) {
         return sessionService.start(sessionId);
     }
 
-    /** Stops accepting answers and reveals the correct options, without advancing. */
     @PostMapping("/{sessionId}/close-question")
     public SessionResponse closeQuestion(@PathVariable UUID sessionId) {
         return sessionService.closeQuestion(sessionId);
