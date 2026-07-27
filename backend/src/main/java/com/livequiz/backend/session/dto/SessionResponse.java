@@ -13,6 +13,7 @@ public record SessionResponse(
         String joinToken,
         String joinUrl,
         Integer currentQuestionIndex,
+        boolean questionOpen,
         int questionCount,
         Instant createdAt,
         Instant startedAt,

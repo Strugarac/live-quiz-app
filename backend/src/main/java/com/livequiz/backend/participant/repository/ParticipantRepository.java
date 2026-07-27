@@ -13,5 +13,7 @@ public interface ParticipantRepository extends JpaRepository<Participant, UUID> 
 
     Optional<Participant> findByToken(String token);
 
+    long countBySession_Id(UUID sessionId);
+
     List<Participant> findBySession_IdOrderByCreatedAtAsc(UUID sessionId);
 }

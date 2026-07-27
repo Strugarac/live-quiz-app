@@ -2,6 +2,13 @@ package com.livequiz.backend.session.service;
 
 import com.livequiz.backend.common.exception.ConflictException;
 import com.livequiz.backend.common.exception.NotFoundException;
+import com.livequiz.backend.live.dto.LiveEventType;
+import com.livequiz.backend.live.dto.QuestionClosedPayload;
+import com.livequiz.backend.live.dto.SessionEndedPayload;
+import com.livequiz.backend.live.repository.ParticipantAnswerRepository;
+import com.livequiz.backend.live.service.LiveEventPublisher;
+import com.livequiz.backend.live.service.LiveMapper;
+import com.livequiz.backend.quiz.domain.Question;
 import com.livequiz.backend.quiz.domain.Quiz;
 import com.livequiz.backend.quiz.repository.QuizRepository;
 import com.livequiz.backend.session.domain.QuizSession;
@@ -27,17 +34,26 @@ public class SessionService {
     private final JoinTokenGenerator joinTokenGenerator;
     private final SessionMapper mapper;
     private final CurrentUserProvider currentUser;
+    private final ParticipantAnswerRepository answerRepository;
+    private final LiveEventPublisher publisher;
+    private final LiveMapper liveMapper;
 
     public SessionService(QuizSessionRepository sessionRepository,
                           QuizRepository quizRepository,
                           JoinTokenGenerator joinTokenGenerator,
                           SessionMapper mapper,
-                          CurrentUserProvider currentUser) {
+                          CurrentUserProvider currentUser,
+                          ParticipantAnswerRepository answerRepository,
+                          LiveEventPublisher publisher,
+                          LiveMapper liveMapper) {
         this.sessionRepository = sessionRepository;
         this.quizRepository = quizRepository;
         this.joinTokenGenerator = joinTokenGenerator;
         this.mapper = mapper;
         this.currentUser = currentUser;
+        this.answerRepository = answerRepository;
+        this.publisher = publisher;
+        this.liveMapper = liveMapper;
     }
 
     public SessionResponse create(CreateSessionRequest request) {
@@ -70,19 +86,56 @@ public class SessionService {
     public SessionResponse start(UUID sessionId) {
         QuizSession session = loadOwned(sessionId);
         session.start();
+        broadcastQuestionOpened(session);
         return mapper.toResponse(session);
     }
 
+    /**
+     * Moves to the next question. If the current one is still open it is closed first, so
+     * the reveal still reaches the clients even when the host skips straight ahead.
+     */
     public SessionResponse advance(UUID sessionId) {
         QuizSession session = loadOwned(sessionId);
+        if (session.isQuestionOpen()) {
+            closeCurrentQuestion(session);
+        }
         session.advance();
+        broadcastQuestionOpened(session);
+        return mapper.toResponse(session);
+    }
+
+    /** Stops accepting answers for the current question and reveals the correct options. */
+    public SessionResponse closeQuestion(UUID sessionId) {
+        QuizSession session = loadOwned(sessionId);
+        closeCurrentQuestion(session);
         return mapper.toResponse(session);
     }
 
     public SessionResponse end(UUID sessionId) {
         QuizSession session = loadOwned(sessionId);
+        if (session.getState() == SessionState.ACTIVE && session.isQuestionOpen()) {
+            closeCurrentQuestion(session);
+        }
         session.end();
+        publisher.toParticipants(session.getJoinToken(), LiveEventType.SESSION_ENDED, new SessionEndedPayload(
+                session.getId(), session.questionCount(), session.getEndedAt()));
         return mapper.toResponse(session);
+    }
+
+    private void closeCurrentQuestion(QuizSession session) {
+        Question question = session.currentQuestion();
+        session.closeQuestion();
+        publisher.toParticipants(session.getJoinToken(), LiveEventType.QUESTION_CLOSED, new QuestionClosedPayload(
+                question.getId(),
+                session.getCurrentQuestionIndex(),
+                liveMapper.correctOptionIds(question),
+                answerRepository.countBySession_IdAndQuestion_Id(session.getId(), question.getId()),
+                session.hasNextQuestion()));
+    }
+
+    private void broadcastQuestionOpened(QuizSession session) {
+        publisher.toParticipants(session.getJoinToken(), LiveEventType.QUESTION_OPENED,
+                liveMapper.toQuestionView(session));
     }
 
     private QuizSession loadOwned(UUID sessionId) {
