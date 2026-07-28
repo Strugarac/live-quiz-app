@@ -19,14 +19,6 @@ import org.springframework.util.StringUtils;
 
 import java.util.UUID;
 
-/**
- * The only guard on the WebSocket side: nothing else authenticates STOMP traffic.
- * <p>
- * CONNECT must carry either a {@code participantToken} (the opaque token issued at join
- * in Step 4) or {@code role: HOST} together with {@code sessionId}. SUBSCRIBE is then
- * checked against that identity, so a participant cannot listen to another session's
- * topic or to the host channel, where answer progress is published.
- */
 @Component
 public class StompAuthChannelInterceptor implements ChannelInterceptor {
 

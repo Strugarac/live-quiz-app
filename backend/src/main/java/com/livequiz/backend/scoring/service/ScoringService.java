@@ -23,20 +23,10 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-/**
- * Grades answers and builds the leaderboard (Step 6).
- * <p>
- * Scoring is correctness-only: a correct answer earns a flat {@link #CORRECT_POINTS},
- * a wrong answer earns nothing, and speed does not affect the score (though
- * {@code responseTimeMs} is kept on the row for Step 7 statistics). Choice questions
- * are graded all-or-nothing — the selected option set must match the correct set
- * exactly. FREE_TEXT answers are collected but not auto-graded.
- */
 @Service
 @Transactional
 public class ScoringService {
 
-    /** Points for a correct answer. Flat, because speed is not scored. */
     static final int CORRECT_POINTS = 1000;
 
     private final ParticipantAnswerRepository answerRepository;
@@ -51,10 +41,6 @@ public class ScoringService {
         this.liveMapper = liveMapper;
     }
 
-    /**
-     * Grades every answer to one question. Called once, when the question closes, so the
-     * cumulative leaderboard can be recomputed straight after.
-     */
     public void gradeQuestion(QuizSession session, Question question) {
         Set<UUID> correctOptions = question.getOptions().stream()
                 .filter(AnswerOption::isCorrect)
@@ -80,10 +66,6 @@ public class ScoringService {
         answer.setPoints(correct ? CORRECT_POINTS : 0);
     }
 
-    /**
-     * The cumulative leaderboard across every question graded so far. Every participant
-     * appears, even with a zero score, ordered by score then label. Tied scores share a rank.
-     */
     @Transactional(readOnly = true)
     public LeaderboardPayload leaderboard(QuizSession session) {
         List<Participant> participants =
@@ -111,7 +93,6 @@ public class ScoringService {
         return new LeaderboardPayload(session.getId(), assignRanks(sorted));
     }
 
-    /** Competition ranking: equal scores get the same rank, the next distinct score skips ahead. */
     private List<LeaderboardRow> assignRanks(List<LeaderboardRow> sorted) {
         List<LeaderboardRow> ranked = new ArrayList<>(sorted.size());
         long previousScore = Long.MIN_VALUE;

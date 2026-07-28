@@ -8,13 +8,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-/**
- * Single exit point for everything pushed over WebSocket.
- * <p>
- * Broadcasts are deferred to after commit: a client that reacts instantly to
- * QUESTION_OPENED would otherwise be able to answer before the professor's transaction
- * has committed, and would be told the question is closed.
- */
 @Component
 public class LiveEventPublisher {
 
@@ -32,7 +25,6 @@ public class LiveEventPublisher {
         broadcast(LiveTopics.host(joinToken), LiveEvent.of(type, payload));
     }
 
-    /** Private reply to one connection; sent immediately, as it reads no uncommitted state. */
     public void toUser(String userName, LiveEventType type, Object payload) {
         messaging.convertAndSendToUser(userName, LiveTopics.USER_QUEUE, LiveEvent.of(type, payload));
     }

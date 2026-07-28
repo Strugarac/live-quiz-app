@@ -5,7 +5,6 @@ import com.livequiz.backend.quiz.domain.QuestionType;
 import java.util.List;
 import java.util.UUID;
 
-/** The question payload broadcast when a question goes live. Never contains correctness. */
 public record LiveQuestionView(
         UUID questionId,
         int questionIndex,

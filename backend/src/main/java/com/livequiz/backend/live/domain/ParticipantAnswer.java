@@ -22,11 +22,6 @@ import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.UUID;
 
-/**
- * One participant's answer to one question, stored raw. Grading (correctness and
- * points) happens in Step 6 from these rows, which is why nothing here says whether
- * the answer was right.
- */
 @Entity
 @Table(name = "participant_answer", uniqueConstraints =
         @UniqueConstraint(name = "uq_answer_participant_question", columnNames = {"participant_id", "question_id"}))
@@ -47,7 +42,6 @@ public class ParticipantAnswer extends BaseEntity {
     @JoinColumn(name = "question_id", nullable = false)
     private Question question;
 
-    /** Denormalised position of the question, so results can be ordered without loading the quiz. */
     @Column(name = "question_index", nullable = false)
     private int questionIndex;
 
@@ -59,21 +53,15 @@ public class ParticipantAnswer extends BaseEntity {
     @Column(name = "free_text", length = 2000)
     private String freeText;
 
-    /** Milliseconds between the question going live and this answer arriving. */
     @Column(name = "response_time_ms")
     private Long responseTimeMs;
 
     @Column(name = "submitted_at", nullable = false)
     private Instant submittedAt;
 
-    /**
-     * Whether the answer was correct. Set when the question closes (Step 6 grading).
-     * Null for FREE_TEXT, which is collected but not auto-graded.
-     */
     @Column(name = "is_correct")
     private Boolean correct;
 
-    /** Points earned for this answer. Zero until graded, and zero for wrong/ungraded answers. */
     @Column(nullable = false)
     private int points;
 }
