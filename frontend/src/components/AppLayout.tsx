@@ -1,7 +1,10 @@
 import { NavLink, Outlet } from 'react-router'
 import { useAuth } from '../auth/authContext'
 
-const NAV = [{ to: '/quizzes', label: 'Quizzes' }]
+const NAV = [
+  { to: '/quizzes', label: 'Quizzes' },
+  { to: '/sessions', label: 'Sessions' },
+]
 
 export function AppLayout() {
   const { professor } = useAuth()

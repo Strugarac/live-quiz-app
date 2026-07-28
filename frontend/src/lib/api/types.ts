@@ -95,6 +95,125 @@ export interface UpdateQuizRequest {
   config: QuizConfigDto
 }
 
+// ---------------------------------------------------------------------------
+// Live sessions — com.livequiz.backend.session.dto / .participant.dto / .scoring.dto
+// ---------------------------------------------------------------------------
+
+export type SessionState = 'LOBBY' | 'ACTIVE' | 'ENDED'
+
+export interface SessionResponse {
+  id: UUID
+  quizId: UUID
+  quizTitle: string
+  state: SessionState
+  joinToken: string
+  /** Full URL participants open; the backend builds it from app.join-base-url. */
+  joinUrl: string
+  /** null until the session is started. */
+  currentQuestionIndex: number | null
+  questionOpen: boolean
+  questionCount: number
+  createdAt: string
+  startedAt: string | null
+  endedAt: string | null
+}
+
+export interface CreateSessionRequest {
+  quizId: UUID
+}
+
+export interface ParticipantResponse {
+  id: UUID
+  token: string
+  sessionId: UUID
+  email: string
+  name: string | null
+  surname: string | null
+  personalNumber: string | null
+  faculty: string | null
+}
+
+export interface LeaderboardRow {
+  participantId: UUID
+  label: string
+  score: number
+  correctCount: number
+  /** Competition ranking: ties share a rank and the next distinct score skips. */
+  rank: number
+}
+
+export interface LeaderboardPayload {
+  sessionId: UUID
+  rows: LeaderboardRow[]
+}
+
+export interface OptionBreakdown {
+  optionId: UUID
+  text: string | null
+  correct: boolean
+  chosenCount: number
+}
+
+export interface FreeTextEntry {
+  participantLabel: string
+  text: string
+}
+
+export interface QuestionBreakdown {
+  questionId: UUID
+  questionIndex: number
+  text: string | null
+  type: QuestionType
+  answerCount: number
+  /** Both are 0 for FREE_TEXT: those answers are collected, not graded. */
+  correctCount: number
+  incorrectCount: number
+  options: OptionBreakdown[]
+  freeTextResponses: FreeTextEntry[]
+}
+
+export interface SessionResultsResponse {
+  sessionId: UUID
+  quizTitle: string
+  state: SessionState
+  endedAt: string | null
+  participantCount: number
+  questionCount: number
+  saveStatistics: boolean
+  saveParticipants: boolean
+  leaderboard: LeaderboardRow[]
+  questions: QuestionBreakdown[]
+}
+
+// ---------------------------------------------------------------------------
+// Public join flow — com.livequiz.backend.participant.dto
+// ---------------------------------------------------------------------------
+
+/** Which registration fields this session asks for. `email` is always REQUIRED. */
+export interface ParticipantFieldsDto {
+  email: FieldRequirement
+  name: FieldRequirement
+  surname: FieldRequirement
+  personalNumber: FieldRequirement
+  faculty: FieldRequirement
+}
+
+export interface JoinInfoResponse {
+  sessionId: UUID
+  quizTitle: string
+  /** Joining is only allowed in LOBBY. */
+  state: SessionState
+  fields: ParticipantFieldsDto
+}
+
+export interface JoinRequest {
+  email: string
+  name: string | null
+  surname: string | null
+  personalNumber: string | null
+  faculty: string | null
+}
+
 /** com.livequiz.backend.common.web.ApiError */
 export interface ApiErrorBody {
   timestamp: string
