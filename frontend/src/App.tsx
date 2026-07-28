@@ -1,8 +1,12 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
 import { AuthProvider, RequireAuth } from './auth/AuthProvider'
 import { AppLayout } from './components/AppLayout'
+import { JoinPage } from './features/join/JoinPage'
 import { QuizEditorPage } from './features/quizzes/QuizEditorPage'
 import { QuizListPage } from './features/quizzes/QuizListPage'
+import { HostSessionPage } from './features/sessions/HostSessionPage'
+import { SessionResultsPage } from './features/sessions/SessionResultsPage'
+import { SessionsListPage } from './features/sessions/SessionsListPage'
 
 function NotFound() {
   return (
@@ -18,8 +22,12 @@ export default function App() {
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-          {/* Professor console. The participant client (/join/:token) lands in slice 9c
-              outside this layout, since students get a different, mobile-first shell. */}
+          {/* Participant client. Deliberately outside the professor layout and RequireAuth:
+              students arrive from a QR code with only a join token, never a login. This is
+              the URL the backend builds from app.join-base-url. */}
+          <Route path="join/:joinToken" element={<JoinPage />} />
+
+          {/* Professor console. */}
           <Route
             element={
               <RequireAuth>
@@ -30,6 +38,9 @@ export default function App() {
             <Route index element={<Navigate to="/quizzes" replace />} />
             <Route path="quizzes" element={<QuizListPage />} />
             <Route path="quizzes/:quizId" element={<QuizEditorPage />} />
+            <Route path="sessions" element={<SessionsListPage />} />
+            <Route path="sessions/:sessionId" element={<HostSessionPage />} />
+            <Route path="sessions/:sessionId/results" element={<SessionResultsPage />} />
             <Route path="*" element={<NotFound />} />
           </Route>
         </Routes>

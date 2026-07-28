@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react'
-import { Link, useParams } from 'react-router'
+import { Link, useNavigate, useParams } from 'react-router'
 import { quizApi } from '../../lib/api/quizzes'
+import { sessionApi } from '../../lib/api/sessions'
 import type { QuestionResponse, QuizConfigDto, QuizResponse, QuizType } from '../../lib/api/types'
 import { useAction, useAsync } from '../../lib/useAsync'
 import { Button } from '../../components/ui/Button'
@@ -37,14 +38,49 @@ function QuizEditor({
   quiz: QuizResponse
   onQuizChange: (quiz: QuizResponse) => void
 }) {
+  const navigate = useNavigate()
+  const startSession = useAction(() => sessionApi.create({ quizId: quiz.id }))
+
+  const hostSession = async () => {
+    const result = await startSession.run()
+    if (result.ok) {
+      navigate(`/sessions/${result.value.id}`)
+    }
+  }
+
   return (
     <>
-      <div className="mb-6">
-        <Link to="/quizzes" className="text-sm font-medium text-brand-700 hover:underline">
-          ← All quizzes
-        </Link>
-        <h1 className="mt-2 text-2xl font-bold text-slate-900">{quiz.title}</h1>
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <Link to="/quizzes" className="text-sm font-medium text-brand-700 hover:underline">
+            ← All quizzes
+          </Link>
+          <h1 className="mt-2 text-2xl font-bold text-slate-900">{quiz.title}</h1>
+        </div>
+        <Button
+          variant="primary"
+          pending={startSession.pending}
+          disabled={quiz.questions.length === 0}
+          onClick={hostSession}
+        >
+          Start live session
+        </Button>
       </div>
+
+      {startSession.error && (
+        <div className="mb-6">
+          {/* A 409 here means this quiz already has a session in LOBBY or ACTIVE. */}
+          <ErrorBanner error={startSession.error} />
+          {startSession.error.status === 409 && (
+            <Link
+              to="/sessions"
+              className="mt-2 inline-block text-sm font-semibold text-brand-700 hover:underline"
+            >
+              Open the running session →
+            </Link>
+          )}
+        </div>
+      )}
 
       <div className="space-y-6">
         <DetailsSection quiz={quiz} onSaved={onQuizChange} />
