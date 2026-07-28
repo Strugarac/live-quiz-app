@@ -1,5 +1,6 @@
 package com.livequiz.backend.quiz.service;
 
+import com.livequiz.backend.common.exception.ConflictException;
 import com.livequiz.backend.common.exception.NotFoundException;
 import com.livequiz.backend.quiz.domain.Question;
 import com.livequiz.backend.quiz.domain.Quiz;
@@ -11,26 +12,34 @@ import com.livequiz.backend.quiz.dto.QuizSummary;
 import com.livequiz.backend.quiz.dto.UpdateQuizRequest;
 import com.livequiz.backend.quiz.repository.QuizRepository;
 import com.livequiz.backend.security.CurrentUserProvider;
+import com.livequiz.backend.session.domain.SessionState;
+import com.livequiz.backend.session.repository.QuizSessionRepository;
+import com.livequiz.backend.session.repository.QuizSessionRepository.QuizSessionCount;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
 public class QuizService {
 
     private final QuizRepository quizRepository;
+    private final QuizSessionRepository sessionRepository;
     private final QuizMapper mapper;
     private final QuestionValidator questionValidator;
     private final CurrentUserProvider currentUser;
 
     public QuizService(QuizRepository quizRepository,
+                       QuizSessionRepository sessionRepository,
                        QuizMapper mapper,
                        QuestionValidator questionValidator,
                        CurrentUserProvider currentUser) {
         this.quizRepository = quizRepository;
+        this.sessionRepository = sessionRepository;
         this.mapper = mapper;
         this.questionValidator = questionValidator;
         this.currentUser = currentUser;
@@ -46,8 +55,17 @@ public class QuizService {
 
     @Transactional(readOnly = true)
     public List<QuizSummary> list() {
-        return quizRepository.findByOwnerProfessorIdOrderByCreatedAtDesc(ownerId()).stream()
-                .map(mapper::toSummary)
+        List<Quiz> quizzes = quizRepository.findByOwnerProfessorIdOrderByCreatedAtDesc(ownerId());
+        if (quizzes.isEmpty()) {
+            return List.of();
+        }
+        // One grouped count for the whole page rather than a query per quiz.
+        Map<UUID, Long> sessionCounts = sessionRepository
+                .countByQuizIdIn(quizzes.stream().map(Quiz::getId).toList()).stream()
+                .collect(Collectors.toMap(QuizSessionCount::getQuizId, QuizSessionCount::getTotal));
+
+        return quizzes.stream()
+                .map(quiz -> mapper.toSummary(quiz, sessionCounts.getOrDefault(quiz.getId(), 0L)))
                 .toList();
     }
 
@@ -65,8 +83,18 @@ public class QuizService {
         return mapper.toResponse(quiz);
     }
 
+    /**
+     * Deletes the quiz and, by database cascade, every session hosted from it along with
+     * their participants and answers. Refused while a session is still in LOBBY or ACTIVE,
+     * so a lecture in progress cannot be destroyed by a mis-click.
+     */
     public void delete(UUID quizId) {
-        quizRepository.delete(loadOwned(quizId));
+        Quiz quiz = loadOwned(quizId);
+        if (sessionRepository.existsByQuiz_IdAndStateIn(quizId, SessionState.LIVE_STATES)) {
+            throw new ConflictException(
+                    "This quiz has a session that has not ended yet. End that session before deleting the quiz.");
+        }
+        quizRepository.delete(quiz);
     }
 
     public QuestionResponse addQuestion(UUID quizId, QuestionRequest request) {

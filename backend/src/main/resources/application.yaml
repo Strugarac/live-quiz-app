@@ -3,6 +3,13 @@ spring:
     name: backend
   profiles:
     default: dev
+  # Question / answer-option image uploads (stored in the quiz_image table).
+  # Kept in step with ImageService.MAX_SIZE_BYTES.
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      # Slightly above max-file-size to leave room for multipart framing overhead.
+      max-request-size: 55MB
   jpa:
     open-in-view: false
     hibernate:
@@ -15,6 +22,12 @@ spring:
 
 server:
   port: 8080
+  tomcat:
+    # When an upload is rejected for exceeding max-file-size, Tomcat has to read and discard
+    # the rest of the body before it can reply. Its 2 MB default cap on that would abort the
+    # connection instead, so an over-limit upload would surface as a connection reset rather
+    # than the 413 from GlobalExceptionHandler. -1 removes the cap.
+    max-swallow-size: -1
 
 # Application settings.
 # join-base-url: frontend join page; the session join token is appended, and the

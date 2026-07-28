@@ -7,11 +7,13 @@ import com.livequiz.backend.session.domain.QuizSession;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import java.util.List;
 
@@ -33,6 +35,32 @@ public class GlobalExceptionHandler {
     @ExceptionHandler({ConflictException.class, QuizSession.IllegalSessionState.class})
     public ResponseEntity<ApiError> handleConflict(RuntimeException ex, HttpServletRequest req) {
         return build(HttpStatus.CONFLICT, ex.getMessage(), req);
+    }
+
+    /**
+     * Constraint violations that slipped past the service-level guards. Reported as a
+     * conflict rather than falling through to the opaque 500 below, and logged in full
+     * because reaching this handler usually means a guard or a cascade is missing.
+     */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ApiError> handleDataIntegrity(DataIntegrityViolationException ex,
+                                                       HttpServletRequest req) {
+        log.warn("Data integrity violation for {} {}", req.getMethod(), req.getRequestURI(), ex);
+        return build(HttpStatus.CONFLICT,
+                "This change conflicts with data that already exists and is still referenced.", req);
+    }
+
+    /**
+     * The servlet container rejects an oversized upload before it ever reaches ImageService,
+     * so the friendly size message has to be produced here as well. 413, spelled numerically
+     * because ApiError carries the status itself.
+     */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiError> handleUploadTooLarge(MaxUploadSizeExceededException ex,
+                                                        HttpServletRequest req) {
+        ApiError body = ApiError.of(413, "Payload Too Large",
+                "That file is too large. Images must be 50 MB or smaller.", req.getRequestURI());
+        return ResponseEntity.status(413).body(body);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
