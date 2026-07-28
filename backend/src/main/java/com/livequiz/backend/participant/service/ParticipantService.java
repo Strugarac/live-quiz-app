@@ -78,10 +78,6 @@ public class ParticipantService {
         return mapper.toResponse(participant);
     }
 
-    /**
-     * Tells the lobby someone arrived. Participants get only the headcount; the host also
-     * gets who it was, so the host screen can list the room.
-     */
     private void announceJoin(QuizSession session, Participant participant) {
         long participantCount = participantRepository.countBySession_Id(session.getId());
         publisher.toParticipants(session.getJoinToken(), LiveEventType.PARTICIPANT_JOINED,

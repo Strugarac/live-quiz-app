@@ -9,15 +9,6 @@ import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBr
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
 
-/**
- * STOMP over WebSocket for live gameplay.
- * <p>
- * Clients connect to {@code /ws} (SockJS fallback available), subscribe to
- * {@code /topic/session.{joinToken}} and send answers to {@code /app/session/answer}.
- * Broadcasts go through a RabbitMQ STOMP relay so several backend instances can host the
- * same session; set {@code app.websocket.broker.mode=simple} to fall back to Spring's
- * in-memory broker when RabbitMQ is not running.
- */
 @Configuration
 @EnableWebSocketMessageBroker
 @EnableConfigurationProperties(WebSocketProperties.class)

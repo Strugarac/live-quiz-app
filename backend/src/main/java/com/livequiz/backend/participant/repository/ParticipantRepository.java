@@ -16,4 +16,6 @@ public interface ParticipantRepository extends JpaRepository<Participant, UUID> 
     long countBySession_Id(UUID sessionId);
 
     List<Participant> findBySession_IdOrderByCreatedAtAsc(UUID sessionId);
+
+    void deleteBySession_Id(UUID sessionId);
 }

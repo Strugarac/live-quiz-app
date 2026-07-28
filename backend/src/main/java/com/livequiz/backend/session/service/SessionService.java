@@ -12,6 +12,8 @@ import com.livequiz.backend.quiz.domain.Question;
 import com.livequiz.backend.quiz.domain.Quiz;
 import com.livequiz.backend.quiz.repository.QuizRepository;
 import com.livequiz.backend.scoring.dto.LeaderboardPayload;
+import com.livequiz.backend.scoring.dto.SessionResultsResponse;
+import com.livequiz.backend.scoring.service.ResultsService;
 import com.livequiz.backend.scoring.service.ScoringService;
 import com.livequiz.backend.session.domain.QuizSession;
 import com.livequiz.backend.session.domain.SessionState;
@@ -40,6 +42,7 @@ public class SessionService {
     private final LiveEventPublisher publisher;
     private final LiveMapper liveMapper;
     private final ScoringService scoringService;
+    private final ResultsService resultsService;
 
     public SessionService(QuizSessionRepository sessionRepository,
                           QuizRepository quizRepository,
@@ -49,7 +52,8 @@ public class SessionService {
                           ParticipantAnswerRepository answerRepository,
                           LiveEventPublisher publisher,
                           LiveMapper liveMapper,
-                          ScoringService scoringService) {
+                          ScoringService scoringService,
+                          ResultsService resultsService) {
         this.sessionRepository = sessionRepository;
         this.quizRepository = quizRepository;
         this.joinTokenGenerator = joinTokenGenerator;
@@ -59,6 +63,7 @@ public class SessionService {
         this.publisher = publisher;
         this.liveMapper = liveMapper;
         this.scoringService = scoringService;
+        this.resultsService = resultsService;
     }
 
     public SessionResponse create(CreateSessionRequest request) {
@@ -88,10 +93,27 @@ public class SessionService {
         return mapper.toResponse(loadOwned(sessionId));
     }
 
-    /** The cumulative leaderboard for a session, on demand (also usable after the session ends). */
     @Transactional(readOnly = true)
     public LeaderboardPayload leaderboard(UUID sessionId) {
         return scoringService.leaderboard(loadOwned(sessionId));
+    }
+
+    @Transactional(readOnly = true)
+    public SessionResultsResponse results(UUID sessionId) {
+        return resultsService.getResults(loadOwned(sessionId));
+    }
+
+    @Transactional(readOnly = true)
+    public String exportResultsCsv(UUID sessionId) {
+        return resultsService.exportCsv(loadOwned(sessionId));
+    }
+
+    public void discardResults(UUID sessionId) {
+        QuizSession session = loadOwned(sessionId);
+        if (session.getState() != SessionState.ENDED) {
+            throw new ConflictException("End the session before clearing its results");
+        }
+        resultsService.discard(session);
     }
 
     public SessionResponse start(UUID sessionId) {
@@ -101,10 +123,6 @@ public class SessionService {
         return mapper.toResponse(session);
     }
 
-    /**
-     * Moves to the next question. If the current one is still open it is closed first, so
-     * the reveal still reaches the clients even when the host skips straight ahead.
-     */
     public SessionResponse advance(UUID sessionId) {
         QuizSession session = loadOwned(sessionId);
         if (session.isQuestionOpen()) {
@@ -115,7 +133,6 @@ public class SessionService {
         return mapper.toResponse(session);
     }
 
-    /** Stops accepting answers for the current question and reveals the correct options. */
     public SessionResponse closeQuestion(UUID sessionId) {
         QuizSession session = loadOwned(sessionId);
         closeCurrentQuestion(session);
@@ -128,6 +145,9 @@ public class SessionService {
             closeCurrentQuestion(session);
         }
         session.end();
+        if (!session.getQuiz().getConfig().isSaveParticipants()) {
+            resultsService.anonymizeParticipants(session);
+        }
         publisher.toParticipants(session.getJoinToken(), LiveEventType.SESSION_ENDED, new SessionEndedPayload(
                 session.getId(), session.questionCount(), session.getEndedAt()));
         return mapper.toResponse(session);

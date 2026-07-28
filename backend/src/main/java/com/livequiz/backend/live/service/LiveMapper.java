@@ -15,7 +15,6 @@ import java.util.UUID;
 @Component
 public class LiveMapper {
 
-    /** Strips {@code correct} from the options — this view goes to participants. */
     public LiveQuestionView toQuestionView(QuizSession session) {
         Question question = session.currentQuestion();
         return new LiveQuestionView(
@@ -37,10 +36,6 @@ public class LiveMapper {
                 .toList();
     }
 
-    /**
-     * How the host sees a participant in the lobby. The real leaderboard label is a
-     * Step 6 decision; this is only for the "someone joined" notification.
-     */
     public String label(Participant participant) {
         String fullName = ("%s %s".formatted(
                 participant.getName() == null ? "" : participant.getName(),

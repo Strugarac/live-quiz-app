@@ -28,11 +28,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-/**
- * The participant-driven half of live gameplay: answering, and resyncing after a reload.
- * The host-driven half (open / close / advance / end) stays in {@code SessionService},
- * which owns the state machine and broadcasts from there.
- */
 @Service
 @Transactional
 public class LiveSessionService {
@@ -101,7 +96,6 @@ public class LiveSessionService {
         publisher.toUser(user.getName(), LiveEventType.ANSWER_ACCEPTED, snapshotOf(session, participant));
     }
 
-    /** Full picture of the session, so a client that reconnected can redraw its screen. */
     @Transactional(readOnly = true)
     public SessionStatePayload snapshot(LiveUser user) {
         QuizSession session = sessionRepository.findByJoinToken(user.joinToken())
@@ -128,10 +122,6 @@ public class LiveSessionService {
                 alreadyAnswered);
     }
 
-    /**
-     * Checks the submission against the question type and returns the option ids to store.
-     * FREE_TEXT answers carry no options and are stored ungraded for Step 6.
-     */
     private Set<UUID> validate(Question question, SubmitAnswerMessage message) {
         Set<UUID> optionIds = message.optionIdsOrEmpty();
 
