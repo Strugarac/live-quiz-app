@@ -31,8 +31,6 @@ import java.util.UUID;
 @Transactional
 public class SessionService {
 
-    private static final List<SessionState> LIVE_STATES = List.of(SessionState.LOBBY, SessionState.ACTIVE);
-
     private final QuizSessionRepository sessionRepository;
     private final QuizRepository quizRepository;
     private final JoinTokenGenerator joinTokenGenerator;
@@ -70,7 +68,7 @@ public class SessionService {
         Quiz quiz = quizRepository.findByIdAndOwnerProfessorId(request.quizId(), ownerId())
                 .orElseThrow(() -> NotFoundException.of("Quiz", request.quizId()));
 
-        if (sessionRepository.existsByQuiz_IdAndStateIn(quiz.getId(), LIVE_STATES)) {
+        if (sessionRepository.existsByQuiz_IdAndStateIn(quiz.getId(), SessionState.LIVE_STATES)) {
             throw new ConflictException("This quiz already has an active session");
         }
 

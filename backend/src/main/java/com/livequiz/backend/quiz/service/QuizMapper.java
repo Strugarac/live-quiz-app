@@ -78,12 +78,13 @@ public class QuizMapper {
                 quiz.getCreatedAt());
     }
 
-    public QuizSummary toSummary(Quiz quiz) {
+    public QuizSummary toSummary(Quiz quiz, long sessionCount) {
         return new QuizSummary(
                 quiz.getId(),
                 quiz.getTitle(),
                 quiz.getType(),
                 quiz.getQuestions().size(),
+                sessionCount,
                 quiz.getCreatedAt());
     }
 

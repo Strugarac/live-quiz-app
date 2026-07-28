@@ -10,6 +10,8 @@ public record QuizSummary(
         String title,
         QuizType type,
         int questionCount,
+        /* Sessions hosted from this quiz; deleting the quiz deletes them and their results. */
+        long sessionCount,
         Instant createdAt
 ) {
 }
