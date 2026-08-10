@@ -18,22 +18,21 @@ import java.util.UUID;
 @Transactional
 public class ImageService {
 
-    /** Formats every browser renders natively. SVG is excluded on purpose: it can carry script. */
     private static final Set<String> ALLOWED_CONTENT_TYPES =
             Set.of("image/png", "image/jpeg", "image/gif", "image/webp");
 
-    /**
-     * Also enforced by spring.servlet.multipart.max-file-size, which rejects the request
-     * before it reaches this method. This check covers the rest.
-     */
     static final int MAX_SIZE_BYTES = 50 * 1024 * 1024;
 
     private final QuizImageRepository imageRepository;
     private final CurrentUserProvider currentUser;
+    private final ImageUrlResolver urlResolver;
 
-    public ImageService(QuizImageRepository imageRepository, CurrentUserProvider currentUser) {
+    public ImageService(QuizImageRepository imageRepository,
+                        CurrentUserProvider currentUser,
+                        ImageUrlResolver urlResolver) {
         this.imageRepository = imageRepository;
         this.currentUser = currentUser;
+        this.urlResolver = urlResolver;
     }
 
     public ImageUploadResponse store(MultipartFile file) {
@@ -64,21 +63,14 @@ public class ImageService {
         image.setData(bytes);
 
         QuizImage saved = imageRepository.saveAndFlush(image);
-        return new ImageUploadResponse(saved.getId(), publicUrl(saved.getId()),
+        String url = urlResolver.toPublicUrl(urlResolver.storedPath(saved.getId()));
+        return new ImageUploadResponse(saved.getId(), url,
                 saved.getContentType(), saved.getSizeBytes());
     }
 
-    /**
-     * Images are fetched by participants, who are not authenticated, so reads are public and
-     * not scoped to the owning professor. The id is a random UUID, so it is unguessable.
-     */
     @Transactional(readOnly = true)
     public QuizImage load(UUID imageId) {
         return imageRepository.findById(imageId)
                 .orElseThrow(() -> NotFoundException.of("Image", imageId));
-    }
-
-    public static String publicUrl(UUID imageId) {
-        return "/api/public/images/" + imageId;
     }
 }
