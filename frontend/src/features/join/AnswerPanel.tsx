@@ -54,7 +54,9 @@ export function AnswerPanel({
   return (
     <div>
       <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-        Question {question.questionIndex + 1} of {question.questionCount}
+        {/* Counts what this session has shown, not the position in the quiz: a flexible
+            quiz may open its questions in any order. */}
+        Question {question.askedPosition} of {question.questionCount}
       </p>
       <h1 className="mt-1 text-xl font-bold text-slate-900">
         {question.text ?? 'Look at the image'}

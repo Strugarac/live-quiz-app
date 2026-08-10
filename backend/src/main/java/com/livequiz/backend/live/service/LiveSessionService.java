@@ -106,7 +106,7 @@ public class LiveSessionService {
     }
 
     private SessionStatePayload snapshotOf(QuizSession session, Participant participant) {
-        boolean showQuestion = session.getState() == SessionState.ACTIVE && session.isStarted();
+        boolean showQuestion = session.getState() == SessionState.ACTIVE && session.hasCurrentQuestion();
         boolean alreadyAnswered = showQuestion && participant != null
                 && answerRepository.existsByParticipant_IdAndQuestion_Id(
                 participant.getId(), session.currentQuestion().getId());
@@ -114,7 +114,7 @@ public class LiveSessionService {
         return new SessionStatePayload(
                 session.getId(),
                 session.getState(),
-                session.isStarted() ? session.getCurrentQuestionIndex() : null,
+                session.hasCurrentQuestion() ? session.getCurrentQuestionIndex() : null,
                 session.questionCount(),
                 session.isQuestionOpen(),
                 participantRepository.countBySession_Id(session.getId()),

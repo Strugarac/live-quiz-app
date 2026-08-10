@@ -37,6 +37,17 @@ export const sessionApi = {
   next: (sessionId: UUID) =>
     request<SessionResponse>(`/professor/sessions/${sessionId}/next`, { method: 'POST' }),
 
+  /**
+   * Flexible quizzes only: presents a chosen question instead of the next one in order.
+   * Like `next`, it closes and grades an open question first. 409 on a static quiz or a
+   * question that has already been asked.
+   */
+  openQuestion: (sessionId: UUID, questionId: UUID) =>
+    request<SessionResponse>(
+      `/professor/sessions/${sessionId}/questions/${questionId}/open`,
+      { method: 'POST' },
+    ),
+
   end: (sessionId: UUID) =>
     request<SessionResponse>(`/professor/sessions/${sessionId}/end`, { method: 'POST' }),
 

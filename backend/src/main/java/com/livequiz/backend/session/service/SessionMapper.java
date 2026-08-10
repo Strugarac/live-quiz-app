@@ -5,6 +5,8 @@ import com.livequiz.backend.session.dto.SessionResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
+
 @Component
 public class SessionMapper {
 
@@ -19,10 +21,12 @@ public class SessionMapper {
                 session.getId(),
                 session.getQuiz().getId(),
                 session.getQuiz().getTitle(),
+                session.getQuiz().getType(),
                 session.getState(),
                 session.getJoinToken(),
                 joinUrl(session.getJoinToken()),
-                session.isStarted() ? session.getCurrentQuestionIndex() : null,
+                session.hasCurrentQuestion() ? session.getCurrentQuestionIndex() : null,
+                List.copyOf(session.getAskedQuestionIds()),
                 session.isQuestionOpen(),
                 session.getQuiz().getQuestions().size(),
                 session.getCreatedAt(),

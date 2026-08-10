@@ -46,7 +46,10 @@ export interface LiveOptionView {
 /** What participants are shown; deliberately carries no correct-answer flags. */
 export interface LiveQuestionView {
   questionId: UUID
+  /** Position in the QUIZ — how the host console looks the question up. */
   questionIndex: number
+  /** Position in THIS SESSION, 1-based: the "3" in "question 3 of 8". */
+  askedPosition: number
   questionCount: number
   text: string | null
   imageUrl: string | null

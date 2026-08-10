@@ -37,4 +37,19 @@ public interface QuizSessionRepository extends JpaRepository<QuizSession, UUID> 
     boolean existsByJoinToken(String joinToken);
 
     boolean existsByQuiz_IdAndStateIn(UUID quizId, Collection<SessionState> states);
+
+    /**
+     * Whether a still-running session has already presented this question. Such a question
+     * is frozen: participants have seen it, and answers to it may already be graded, so
+     * editing or deleting it would rewrite a question people have already answered.
+     */
+    @Query("""
+            select count(s) > 0
+            from QuizSession s
+            join s.askedQuestionIds askedId
+            where askedId = :questionId
+              and s.state in :states
+            """)
+    boolean existsAskedInSessionStates(@Param("questionId") UUID questionId,
+                                       @Param("states") Collection<SessionState> states);
 }

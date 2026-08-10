@@ -117,6 +117,31 @@ public class SessionService {
     public SessionResponse start(UUID sessionId) {
         QuizSession session = loadOwned(sessionId);
         session.start();
+        // A flexible session starts without a question — participants stay on the waiting
+        // screen until the host picks one, so there is nothing to broadcast yet.
+        if (session.hasCurrentQuestion()) {
+            broadcastQuestionOpened(session);
+        }
+        return mapper.toResponse(session);
+    }
+
+    /**
+     * Presents a question the host chose. Flexible quizzes only; a static quiz uses
+     * {@link #advance(UUID)}, which walks the fixed order.
+     */
+    public SessionResponse openQuestion(UUID sessionId, UUID questionId) {
+        QuizSession session = loadOwned(sessionId);
+        Question question = session.getQuiz().getQuestions().stream()
+                .filter(candidate -> candidate.getId().equals(questionId))
+                .findFirst()
+                .orElseThrow(() -> NotFoundException.of("Question", questionId));
+
+        // Same contract as advancing: an open question is closed and graded first, so
+        // moving on can never drop answers that were already in.
+        if (session.isQuestionOpen()) {
+            closeCurrentQuestion(session);
+        }
+        session.openQuestion(question);
         broadcastQuestionOpened(session);
         return mapper.toResponse(session);
     }

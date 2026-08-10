@@ -218,7 +218,7 @@ function NewQuizModal({ open, onClose }: { open: boolean; onClose: () => void })
           label="Type"
           value={type}
           options={QUIZ_TYPE_OPTIONS}
-          hint="Static runs the questions in a fixed order."
+          hint="Static runs the questions in a fixed order. Flexible lets you choose each question while the session runs, and add new ones as you go."
           onChange={(event) => setType(event.target.value as QuizType)}
         />
         {/* Lets Enter submit the form without adding a stray visible button. */}

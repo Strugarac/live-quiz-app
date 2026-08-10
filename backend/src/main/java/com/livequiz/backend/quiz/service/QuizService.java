@@ -4,6 +4,7 @@ import com.livequiz.backend.common.exception.ConflictException;
 import com.livequiz.backend.common.exception.NotFoundException;
 import com.livequiz.backend.quiz.domain.Question;
 import com.livequiz.backend.quiz.domain.Quiz;
+import com.livequiz.backend.quiz.domain.QuizType;
 import com.livequiz.backend.quiz.dto.CreateQuizRequest;
 import com.livequiz.backend.quiz.dto.QuestionRequest;
 import com.livequiz.backend.quiz.dto.QuestionResponse;
@@ -76,6 +77,15 @@ public class QuizService {
 
     public QuizResponse update(UUID quizId, UpdateQuizRequest request) {
         Quiz quiz = loadOwned(quizId);
+        // The type decides how a running session navigates, so switching it underneath one
+        // is incoherent: flexible to static would resume the fixed order at the position
+        // after the current question, re-asking anything the host had skipped past.
+        if (quiz.getType() != request.type()
+                && sessionRepository.existsByQuiz_IdAndStateIn(quizId, SessionState.LIVE_STATES)) {
+            throw new ConflictException(
+                    "This quiz has a session that has not ended yet, so its type cannot be changed. "
+                            + "End that session first.");
+        }
         quiz.setTitle(request.title());
         quiz.setDescription(request.description());
         quiz.setType(request.type());
@@ -92,9 +102,21 @@ public class QuizService {
         quizRepository.delete(quiz);
     }
 
+    /**
+     * Adding to a quiz with a session in progress is a FLEXIBLE-only privilege: the host
+     * picks each question there, so a late addition simply joins the pool of questions
+     * still available to ask. A static quiz runs a fixed order that participants are
+     * already partway through, so its question list is frozen once the session is running.
+     */
     public QuestionResponse addQuestion(UUID quizId, QuestionRequest request) {
         questionValidator.validate(request);
         Quiz quiz = loadOwned(quizId);
+        if (quiz.getType() != QuizType.FLEXIBLE
+                && sessionRepository.existsByQuiz_IdAndStateIn(quizId, List.of(SessionState.ACTIVE))) {
+            throw new ConflictException(
+                    "This quiz is running and is not flexible, so questions cannot be added to it now. "
+                            + "End the session first, or make the quiz flexible before starting it.");
+        }
         Question question = mapper.toQuestion(request);
         quiz.addQuestion(question);
         quizRepository.flush();
@@ -105,6 +127,7 @@ public class QuizService {
         questionValidator.validate(request);
         Quiz quiz = loadOwned(quizId);
         Question question = findQuestion(quiz, questionId);
+        requireNotAsked(questionId, "edited");
 
         Question rebuilt = mapper.toQuestion(request);
         question.setText(rebuilt.getText());
@@ -119,7 +142,23 @@ public class QuizService {
 
     public void deleteQuestion(UUID quizId, UUID questionId) {
         Quiz quiz = loadOwned(quizId);
-        quiz.removeQuestion(findQuestion(quiz, questionId));
+        Question question = findQuestion(quiz, questionId);
+        requireNotAsked(questionId, "deleted");
+        quiz.removeQuestion(question);
+    }
+
+    /**
+     * Refuses to touch a question a running session has already presented. Participants
+     * have seen it and their answers may already be graded against its options, so a change
+     * would rewrite history mid-lecture. Questions not yet asked stay editable, which is
+     * what lets a flexible session be adjusted while it runs.
+     */
+    private void requireNotAsked(UUID questionId, String action) {
+        if (sessionRepository.existsAskedInSessionStates(questionId, SessionState.LIVE_STATES)) {
+            throw new ConflictException(
+                    "This question has already been asked in a session that is still running, "
+                            + "so it cannot be " + action + " now.");
+        }
     }
 
     private Quiz loadOwned(UUID quizId) {
