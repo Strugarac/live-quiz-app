@@ -2,6 +2,7 @@ package com.livequiz.backend.live.service;
 
 import com.livequiz.backend.live.dto.LiveOptionView;
 import com.livequiz.backend.live.dto.LiveQuestionView;
+import com.livequiz.backend.media.service.ImageUrlResolver;
 import com.livequiz.backend.participant.domain.Participant;
 import com.livequiz.backend.quiz.domain.AnswerOption;
 import com.livequiz.backend.quiz.domain.Question;
@@ -15,6 +16,12 @@ import java.util.UUID;
 @Component
 public class LiveMapper {
 
+    private final ImageUrlResolver imageUrls;
+
+    public LiveMapper(ImageUrlResolver imageUrls) {
+        this.imageUrls = imageUrls;
+    }
+
     public LiveQuestionView toQuestionView(QuizSession session) {
         Question question = session.currentQuestion();
         return new LiveQuestionView(
@@ -22,10 +29,11 @@ public class LiveMapper {
                 session.getCurrentQuestionIndex(),
                 session.questionCount(),
                 question.getText(),
-                question.getImageUrl(),
+                imageUrls.toPublicUrl(question.getImageUrl()),
                 question.getType(),
                 question.getOptions().stream()
-                        .map(o -> new LiveOptionView(o.getId(), o.getText(), o.getImageUrl()))
+                        .map(o -> new LiveOptionView(o.getId(), o.getText(),
+                                imageUrls.toPublicUrl(o.getImageUrl())))
                         .toList());
     }
 

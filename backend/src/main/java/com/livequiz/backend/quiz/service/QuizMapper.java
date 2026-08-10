@@ -12,6 +12,7 @@ import com.livequiz.backend.quiz.dto.QuestionResponse;
 import com.livequiz.backend.quiz.dto.QuizConfigDto;
 import com.livequiz.backend.quiz.dto.QuizResponse;
 import com.livequiz.backend.quiz.dto.QuizSummary;
+import com.livequiz.backend.media.service.ImageUrlResolver;
 import com.livequiz.backend.security.ProfessorId;
 import org.springframework.stereotype.Component;
 
@@ -20,6 +21,12 @@ import java.util.Optional;
 
 @Component
 public class QuizMapper {
+
+    private final ImageUrlResolver imageUrls;
+
+    public QuizMapper(ImageUrlResolver imageUrls) {
+        this.imageUrls = imageUrls;
+    }
 
     public Quiz toNewQuiz(CreateQuizRequest request, ProfessorId owner) {
         Quiz quiz = new Quiz();
@@ -52,7 +59,7 @@ public class QuizMapper {
     public Question toQuestion(QuestionRequest dto) {
         Question question = new Question();
         question.setText(dto.text());
-        question.setImageUrl(dto.imageUrl());
+        question.setImageUrl(imageUrls.toStoredValue(dto.imageUrl()));
         question.setType(dto.type());
         Optional.ofNullable(dto.options()).orElse(List.of())
                 .forEach(o -> question.addOption(toOption(o)));
@@ -62,7 +69,7 @@ public class QuizMapper {
     private AnswerOption toOption(OptionRequest dto) {
         AnswerOption option = new AnswerOption();
         option.setText(dto.text());
-        option.setImageUrl(dto.imageUrl());
+        option.setImageUrl(imageUrls.toStoredValue(dto.imageUrl()));
         option.setCorrect(dto.correct());
         return option;
     }
@@ -93,7 +100,7 @@ public class QuizMapper {
                 question.getId(),
                 question.getOrderIndex(),
                 question.getText(),
-                question.getImageUrl(),
+                imageUrls.toPublicUrl(question.getImageUrl()),
                 question.getType(),
                 question.getOptions().stream().map(this::toOptionResponse).toList());
     }
@@ -103,7 +110,7 @@ public class QuizMapper {
                 option.getId(),
                 option.getOrderIndex(),
                 option.getText(),
-                option.getImageUrl(),
+                imageUrls.toPublicUrl(option.getImageUrl()),
                 option.isCorrect());
     }
 

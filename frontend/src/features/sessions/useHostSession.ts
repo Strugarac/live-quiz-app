@@ -48,6 +48,25 @@ interface LiveState {
   error: string | undefined
 }
 
+/**
+ * Per-question totals come from the results endpoint, which has no state guard and so
+ * answers mid-session as well as after the session has ended.
+ */
+async function fetchBreakdown(
+  sessionId: UUID,
+  matches: (question: QuestionBreakdown) => boolean,
+  signal?: AbortSignal,
+): Promise<QuestionBreakdown | undefined> {
+  try {
+    const results = await sessionApi.results(sessionId, signal)
+    return results.questions.find(matches)
+  } catch {
+    // Non-essential detail; the reveal still shows the correct answers and the total
+    // carried by QUESTION_CLOSED.
+    return undefined
+  }
+}
+
 const EMPTY_LIVE: LiveState = {
   participantCount: undefined,
   answerCount: 0,
@@ -76,7 +95,15 @@ export function useHostSession(sessionId: UUID) {
         quizApi.get(session.quizId, signal),
         sessionApi.participants(sessionId, signal),
       ])
-      return { session, quiz, participants }
+      // Opening the console on a question that is already closed: no QUESTION_CLOSED
+      // broadcast is coming, so its totals have to be fetched rather than counted from
+      // live events. Without this a reload during a reveal would report 0 answers.
+      const index = session.currentQuestionIndex
+      const breakdown =
+        session.state === 'ACTIVE' && !session.questionOpen && index !== null
+          ? await fetchBreakdown(sessionId, (question) => question.questionIndex === index, signal)
+          : undefined
+      return { session, quiz, participants, breakdown }
     },
     [sessionId],
   )
@@ -97,8 +124,12 @@ export function useHostSession(sessionId: UUID) {
     setPatch(updated)
     setLive((current) => ({
       ...current,
-      // A lifecycle call may have closed or opened a question; drop per-question state.
-      answerCount: updated.questionOpen ? current.answerCount : 0,
+      // Per-question state belongs to the question that is OPEN, so it resets when a
+      // lifecycle call opens one. Closing must KEEP the count: it is the final tally for
+      // the question now being revealed, and the QUESTION_CLOSED broadcast carrying the
+      // authoritative total is deferred to after commit, so it often lands before this
+      // response does — zeroing here would wipe it and show 0 answered.
+      answerCount: updated.questionOpen ? 0 : current.answerCount,
       reveal: updated.questionOpen ? undefined : current.reveal,
       breakdown: updated.questionOpen ? undefined : current.breakdown,
     }))
@@ -107,12 +138,12 @@ export function useHostSession(sessionId: UUID) {
   /** Pulls per-option counts for a just-closed question out of the results endpoint. */
   const loadBreakdown = useCallback(
     async (questionId: UUID) => {
-      try {
-        const results = await sessionApi.results(sessionId)
-        const match = results.questions.find((question) => question.questionId === questionId)
+      const match = await fetchBreakdown(
+        sessionId,
+        (question) => question.questionId === questionId,
+      )
+      if (match) {
         setLive((current) => ({ ...current, breakdown: match }))
-      } catch {
-        // Non-essential detail; the reveal still shows the correct answers and totals.
       }
     },
     [sessionId],
@@ -247,16 +278,28 @@ export function useHostSession(sessionId: UUID) {
       ? quiz.questions[session.currentQuestionIndex]
       : undefined
 
+  // The breakdown fetched at load only applies while the console is still on the question it
+  // was fetched for; once the host advances, live events are the source again.
+  const loadedBreakdown =
+    loaded?.breakdown && loaded.breakdown.questionIndex === session?.currentQuestionIndex
+      ? loaded.breakdown
+      : undefined
+  const breakdown = live.breakdown ?? loadedBreakdown
+  // While a question is closed the breakdown holds the same authoritative total as
+  // QUESTION_CLOSED, and it is the only source available after a reload or a reconnect.
+  const answerCount =
+    session && !session.questionOpen && breakdown ? breakdown.answerCount : live.answerCount
+
   return {
     session,
     quiz,
     currentQuestion,
     participants,
     participantCount: live.participantCount ?? participants.length,
-    answerCount: live.answerCount,
+    answerCount,
     leaderboard: live.leaderboard,
     reveal: live.reveal,
-    breakdown: live.breakdown,
+    breakdown,
     liveError: live.error,
     status,
     loading: bundle.loading,

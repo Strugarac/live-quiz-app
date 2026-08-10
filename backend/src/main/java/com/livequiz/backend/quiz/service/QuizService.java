@@ -83,11 +83,6 @@ public class QuizService {
         return mapper.toResponse(quiz);
     }
 
-    /**
-     * Deletes the quiz and, by database cascade, every session hosted from it along with
-     * their participants and answers. Refused while a session is still in LOBBY or ACTIVE,
-     * so a lecture in progress cannot be destroyed by a mis-click.
-     */
     public void delete(UUID quizId) {
         Quiz quiz = loadOwned(quizId);
         if (sessionRepository.existsByQuiz_IdAndStateIn(quizId, SessionState.LIVE_STATES)) {
@@ -111,11 +106,11 @@ public class QuizService {
         Quiz quiz = loadOwned(quizId);
         Question question = findQuestion(quiz, questionId);
 
-        question.setText(request.text());
-        question.setImageUrl(request.imageUrl());
-        question.setType(request.type());
-        question.clearOptions();
         Question rebuilt = mapper.toQuestion(request);
+        question.setText(rebuilt.getText());
+        question.setImageUrl(rebuilt.getImageUrl());
+        question.setType(rebuilt.getType());
+        question.clearOptions();
         rebuilt.getOptions().forEach(question::addOption);
 
         quizRepository.flush();
