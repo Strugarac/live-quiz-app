@@ -156,6 +156,7 @@ function DetailsSection({
             label="Type"
             value={type}
             options={QUIZ_TYPE_OPTIONS}
+            hint="Flexible lets you choose each question during the session and add new ones as you go. Cannot be changed while a session is running."
             onChange={(event) => setType(event.target.value as QuizType)}
           />
         </div>

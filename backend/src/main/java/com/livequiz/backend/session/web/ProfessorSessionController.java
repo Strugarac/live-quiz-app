@@ -89,6 +89,12 @@ public class ProfessorSessionController {
         return sessionService.advance(sessionId);
     }
 
+    /** Flexible quizzes only: presents a specific question that has not been asked yet. */
+    @PostMapping("/{sessionId}/questions/{questionId}/open")
+    public SessionResponse openQuestion(@PathVariable UUID sessionId, @PathVariable UUID questionId) {
+        return sessionService.openQuestion(sessionId, questionId);
+    }
+
     @PostMapping("/{sessionId}/end")
     public SessionResponse end(@PathVariable UUID sessionId) {
         return sessionService.end(sessionId);

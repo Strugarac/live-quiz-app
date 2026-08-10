@@ -5,6 +5,7 @@ import type {
   LeaderboardRow,
   ParticipantResponse,
   QuestionBreakdown,
+  QuestionResponse,
   QuizResponse,
   SessionResponse,
   UUID,
@@ -45,6 +46,13 @@ interface LiveState {
   breakdown: QuestionBreakdown | undefined
   /** Participants that joined while this console was open. */
   joined: LobbyEntry[]
+  /**
+   * Questions seen opening over the socket. Unioned with the session's own asked list so
+   * the picker is right whichever arrives first — the broadcast is deferred to after
+   * commit, so it can land before the REST response that carries the same fact — and so a
+   * session driven from another tab still drops the question from the choices here.
+   */
+  openedQuestionIds: UUID[]
   error: string | undefined
 }
 
@@ -74,6 +82,7 @@ const EMPTY_LIVE: LiveState = {
   reveal: undefined,
   breakdown: undefined,
   joined: [],
+  openedQuestionIds: [],
   error: undefined,
 }
 
@@ -115,6 +124,10 @@ export function useHostSession(sessionId: UUID) {
   const [patch, setPatch] = useState<Partial<SessionResponse>>({})
   const [live, setLive] = useState<LiveState>(EMPTY_LIVE)
   const [status, setStatus] = useState<LiveConnectionStatus>('connecting')
+  // Questions added from this console while the session runs (flexible quizzes only).
+  // Held locally so the picker offers them at once, without refetching the whole bundle
+  // and losing the live state that only the socket can restore.
+  const [addedQuestions, setAddedQuestions] = useState<QuestionResponse[]>([])
 
   const loaded = bundle.data
   const session: SessionResponse | undefined = loaded ? { ...loaded.session, ...patch } : undefined
@@ -204,6 +217,9 @@ export function useHostSession(sessionId: UUID) {
             answerCount: 0,
             reveal: undefined,
             breakdown: undefined,
+            openedQuestionIds: current.openedQuestionIds.includes(payload.questionId)
+              ? current.openedQuestionIds
+              : [...current.openedQuestionIds, payload.questionId],
           }))
           break
         }
@@ -272,11 +288,29 @@ export function useHostSession(sessionId: UUID) {
       ]
     : []
 
-  const quiz: QuizResponse | undefined = loaded?.quiz
+  // A question added mid-session is appended, so its position here matches the orderIndex
+  // the backend gave it — which is what currentQuestionIndex refers to. Ones the reload
+  // already picked up are filtered out so they are not listed twice.
+  const quiz: QuizResponse | undefined = loaded
+    ? {
+        ...loaded.quiz,
+        questions: [
+          ...loaded.quiz.questions,
+          ...addedQuestions.filter(
+            (added) => !loaded.quiz.questions.some((existing) => existing.id === added.id),
+          ),
+        ],
+      }
+    : undefined
   const currentQuestion =
     quiz && session?.currentQuestionIndex !== null && session?.currentQuestionIndex !== undefined
       ? quiz.questions[session.currentQuestionIndex]
       : undefined
+
+  // What the host can still choose from. Driven by what the session has actually asked
+  // rather than by position, so it stays right however the questions were ordered.
+  const asked = new Set([...(session?.askedQuestionIds ?? []), ...live.openedQuestionIds])
+  const remainingQuestions = quiz ? quiz.questions.filter((q) => !asked.has(q.id)) : []
 
   // The breakdown fetched at load only applies while the console is still on the question it
   // was fetched for; once the host advances, live events are the source again.
@@ -294,6 +328,9 @@ export function useHostSession(sessionId: UUID) {
     session,
     quiz,
     currentQuestion,
+    remainingQuestions,
+    /** Presentation position of the current question, 1-based. */
+    askedPosition: asked.size,
     participants,
     participantCount: live.participantCount ?? participants.length,
     answerCount,
@@ -307,9 +344,15 @@ export function useHostSession(sessionId: UUID) {
     reload: () => {
       setPatch({})
       setLive(EMPTY_LIVE)
+      setAddedQuestions([])
       bundle.reload()
     },
     applySession,
+    /** Call after adding a question mid-session so the picker offers it immediately. */
+    questionAdded: (saved: QuestionResponse) =>
+      setAddedQuestions((current) =>
+        current.some((question) => question.id === saved.id) ? current : [...current, saved],
+      ),
     dismissLiveError: () => setLive((current) => ({ ...current, error: undefined })),
   }
 }

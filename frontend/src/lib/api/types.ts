@@ -105,12 +105,22 @@ export interface SessionResponse {
   id: UUID
   quizId: UUID
   quizTitle: string
+  /** FLEXIBLE lets the host choose each question and add questions while running. */
+  quizType: QuizType
   state: SessionState
   joinToken: string
   /** Full URL participants open; the backend builds it from app.join-base-url. */
   joinUrl: string
-  /** null until the session is started. */
+  /**
+   * Position of the current question in the quiz, or null when none is selected — which
+   * for a flexible session includes the gap between starting and the host's first pick.
+   */
   currentQuestionIndex: number | null
+  /**
+   * Questions already presented, in presentation order. Subtract from the quiz to get
+   * what is still available to ask; a question added mid-session is simply not in here.
+   */
+  askedQuestionIds: UUID[]
   questionOpen: boolean
   questionCount: number
   createdAt: string

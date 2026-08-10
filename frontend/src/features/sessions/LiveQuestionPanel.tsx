@@ -6,6 +6,11 @@ import type { QuestionClosedPayload } from '../../lib/ws/liveTypes'
 interface LiveQuestionPanelProps {
   session: SessionResponse
   question: QuestionResponse
+  /**
+   * Position in the session, 1-based — not the position in the quiz. A flexible session
+   * may open question 5 first, and participants count what they have been shown.
+   */
+  position: number
   answerCount: number
   participantCount: number
   reveal: QuestionClosedPayload | undefined
@@ -20,12 +25,12 @@ interface LiveQuestionPanelProps {
 export function LiveQuestionPanel({
   session,
   question,
+  position,
   answerCount,
   participantCount,
   reveal,
   breakdown,
 }: LiveQuestionPanelProps) {
-  const position = (session.currentQuestionIndex ?? 0) + 1
   const closed = !session.questionOpen
   const chosenCounts = new Map(
     breakdown?.options.map((option) => [option.optionId, option.chosenCount]) ?? [],

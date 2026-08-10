@@ -27,6 +27,7 @@ public class LiveMapper {
         return new LiveQuestionView(
                 question.getId(),
                 session.getCurrentQuestionIndex(),
+                session.askedPosition(),
                 session.questionCount(),
                 question.getText(),
                 imageUrls.toPublicUrl(question.getImageUrl()),
