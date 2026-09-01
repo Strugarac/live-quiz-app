@@ -13,6 +13,7 @@ public record SessionResultsResponse(
         Instant endedAt,
         int participantCount,
         int questionCount,
+        boolean surveyMode,
         boolean saveStatistics,
         boolean saveParticipants,
         List<LeaderboardRow> leaderboard,

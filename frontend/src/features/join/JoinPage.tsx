@@ -5,6 +5,7 @@ import { useAsync } from '../../lib/useAsync'
 import { ErrorBanner, Spinner } from '../../components/ui/Feedback'
 import { useStalledConnection } from '../../lib/ws/useStalledConnection'
 import { AnswerPanel } from './AnswerPanel'
+import { SubmittedPanel } from './SubmittedPanel'
 import { RegistrationForm } from './RegistrationForm'
 import { clearToken, readLabel, readToken, writeRegistration } from './participantStorage'
 import { useParticipantSession } from './useParticipantSession'
@@ -131,13 +132,25 @@ export function JoinPage() {
                   title="That is the end — thanks for playing!"
                   detail="Your professor has the final scores."
                 />
+              ) : live.question && live.alreadyAnswered && live.questionOpen ? (
+                /* Answered while the question is still running: the options come off the
+                   screen until the professor closes it and the reveal takes their place. */
+                <SubmittedPanel
+                  question={live.question}
+                  ownSelection={live.ownSelection}
+                  ownFreeText={live.ownFreeText}
+                  ownOrdinal={live.ownOrdinal}
+                  ownResponseTimeMs={live.ownResponseTimeMs}
+                  answerCount={live.answerCount}
+                  participantCount={live.participantCount}
+                  standing={live.standing}
+                />
               ) : live.question ? (
                 <AnswerPanel
                   // Remounting per question resets the local selection.
                   key={live.question.questionId}
                   question={live.question}
                   questionOpen={live.questionOpen}
-                  alreadyAnswered={live.alreadyAnswered}
                   reveal={live.reveal}
                   ownSelection={live.ownSelection}
                   onSubmit={(optionIds, freeText) =>

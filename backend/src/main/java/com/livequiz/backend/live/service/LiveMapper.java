@@ -1,7 +1,10 @@
 package com.livequiz.backend.live.service;
 
+import com.livequiz.backend.live.domain.ParticipantAnswer;
 import com.livequiz.backend.live.dto.LiveOptionView;
 import com.livequiz.backend.live.dto.LiveQuestionView;
+import com.livequiz.backend.live.dto.OwnAnswerView;
+import com.livequiz.backend.live.dto.QuestionClosedPayload;
 import com.livequiz.backend.media.service.ImageUrlResolver;
 import com.livequiz.backend.participant.domain.Participant;
 import com.livequiz.backend.quiz.domain.AnswerOption;
@@ -32,10 +35,30 @@ public class LiveMapper {
                 question.getText(),
                 imageUrls.toPublicUrl(question.getImageUrl()),
                 question.getType(),
+                session.getQuiz().getConfig().isSurveyMode(),
                 question.getOptions().stream()
                         .map(o -> new LiveOptionView(o.getId(), o.getText(),
                                 imageUrls.toPublicUrl(o.getImageUrl())))
                         .toList());
+    }
+
+    public QuestionClosedPayload toClosedPayload(QuizSession session, long answerCount) {
+        Question question = session.currentQuestion();
+        return new QuestionClosedPayload(
+                question.getId(),
+                session.getCurrentQuestionIndex(),
+                session.getQuiz().getConfig().isSurveyMode() ? List.of() : correctOptionIds(question),
+                answerCount,
+                session.hasNextQuestion());
+    }
+
+    public OwnAnswerView toOwnAnswer(ParticipantAnswer answer, int ordinal) {
+        return new OwnAnswerView(
+                answer.getQuestion().getId(),
+                List.copyOf(answer.getSelectedOptionIds()),
+                answer.getFreeText(),
+                ordinal,
+                answer.getResponseTimeMs());
     }
 
     public List<UUID> correctOptionIds(Question question) {

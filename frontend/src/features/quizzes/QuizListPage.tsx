@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { quizApi } from '../../lib/api/quizzes'
-import type { QuizSummary, QuizType } from '../../lib/api/types'
+import type { QuizSummary, QuizType, UUID } from '../../lib/api/types'
 import { useAction, useAsync } from '../../lib/useAsync'
 import { Button } from '../../components/ui/Button'
 import { SelectField, TextArea, TextField } from '../../components/ui/Field'
@@ -15,6 +15,19 @@ export function QuizListPage() {
   const [pendingDelete, setPendingDelete] = useState<QuizSummary | undefined>()
 
   const remove = useAction(quizApi.remove)
+  const copy = useAction(quizApi.copy)
+  // Which row is being copied, so only that button shows a spinner.
+  const [copyingId, setCopyingId] = useState<UUID | undefined>()
+
+  const duplicate = async (quiz: QuizSummary) => {
+    setCopyingId(quiz.id)
+    const result = await copy.run(quiz.id)
+    setCopyingId(undefined)
+    if (result.ok) {
+      // The copy is the newest quiz, so the list — newest first — puts it at the top.
+      quizzes.reload()
+    }
+  }
 
   const confirmDelete = async () => {
     if (!pendingDelete) {
@@ -23,7 +36,8 @@ export function QuizListPage() {
     const result = await remove.run(pendingDelete.id)
     if (result.ok) {
       setPendingDelete(undefined)
-      quizzes.reload()
+      // Same as the sessions list: drop the row locally, no refetch. See the comment there.
+      quizzes.setData((quizzes.data ?? []).filter((row) => row.id !== pendingDelete.id))
     }
   }
 
@@ -44,6 +58,13 @@ export function QuizListPage() {
       {quizzes.loading && <Spinner label="Loading quizzes…" />}
 
       {quizzes.error && <ErrorBanner error={quizzes.error} onRetry={quizzes.reload} />}
+
+      {/* A failed copy leaves the list untouched, so this is the only sign of it. */}
+      {copy.error && (
+        <div className="mb-4">
+          <ErrorBanner error={copy.error} />
+        </div>
+      )}
 
       {quizzes.data?.length === 0 && (
         <EmptyState
@@ -91,6 +112,15 @@ export function QuizListPage() {
                     <td className="px-5 py-3 text-slate-600">{quiz.sessionCount}</td>
                     <td className="px-5 py-3 text-slate-500">{formatDate(quiz.createdAt)}</td>
                     <td className="px-5 py-3 text-right whitespace-nowrap">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        pending={copyingId === quiz.id}
+                        disabled={copy.pending}
+                        onClick={() => void duplicate(quiz)}
+                      >
+                        Copy
+                      </Button>
                       <Button
                         size="sm"
                         variant="ghost"

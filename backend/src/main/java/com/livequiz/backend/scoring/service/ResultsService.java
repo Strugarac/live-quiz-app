@@ -70,6 +70,7 @@ public class ResultsService {
                 session.getEndedAt(),
                 participants.size(),
                 session.questionCount(),
+                config.isSurveyMode(),
                 config.isSaveStatistics(),
                 config.isSaveParticipants(),
                 leaderboard,
@@ -91,8 +92,13 @@ public class ResultsService {
             }
         }
 
+        boolean surveyMode = config.isSurveyMode();
+
         StringBuilder csv = new StringBuilder();
-        csv.append(row("Question #", "Question", "Type", "Participant", "Answer", "Correct", "Points", "Response time (ms)"));
+        csv.append(surveyMode
+                ? row("Question #", "Question", "Type", "Participant", "Answer", "Response time (ms)")
+                : row("Question #", "Question", "Type", "Participant", "Answer", "Correct", "Points",
+                "Response time (ms)"));
         for (ParticipantAnswer a : answerRepository.findBySession_IdOrderByQuestionIndexAsc(session.getId())) {
             Question q = questionById.get(a.getQuestion().getId());
             boolean freeText = q != null && q.getType() == QuestionType.FREE_TEXT;
@@ -101,16 +107,20 @@ public class ResultsService {
                     : a.getSelectedOptionIds().stream()
                             .map(id -> optionText.getOrDefault(id, "?"))
                             .collect(Collectors.joining("; "));
-            String correct = a.getCorrect() == null ? "" : (a.getCorrect() ? "yes" : "no");
-            csv.append(row(
-                    String.valueOf(a.getQuestionIndex() + 1),
-                    q == null ? "" : nullToEmpty(q.getText()),
-                    q == null ? "" : q.getType().name(),
-                    labels.getOrDefault(a.getParticipant().getId(), ""),
-                    answerText,
-                    correct,
-                    String.valueOf(a.getPoints()),
-                    a.getResponseTimeMs() == null ? "" : String.valueOf(a.getResponseTimeMs())));
+            String questionNumber = String.valueOf(a.getQuestionIndex() + 1);
+            String questionText = q == null ? "" : nullToEmpty(q.getText());
+            String questionType = q == null ? "" : q.getType().name();
+            String participant = labels.getOrDefault(a.getParticipant().getId(), "");
+            String responseTime = a.getResponseTimeMs() == null ? "" : String.valueOf(a.getResponseTimeMs());
+
+            if (surveyMode) {
+                csv.append(row(questionNumber, questionText, questionType, participant, answerText,
+                        responseTime));
+            } else {
+                String correct = a.getCorrect() == null ? "" : (a.getCorrect() ? "yes" : "no");
+                csv.append(row(questionNumber, questionText, questionType, participant, answerText,
+                        correct, String.valueOf(a.getPoints()), responseTime));
+            }
         }
         return csv.toString();
     }

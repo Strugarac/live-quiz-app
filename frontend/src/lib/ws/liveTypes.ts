@@ -54,7 +54,35 @@ export interface LiveQuestionView {
   text: string | null
   imageUrl: string | null
   type: QuestionType
+  /** No right answers in this quiz: nothing is ever marked correct and no score is kept. */
+  surveyMode: boolean
   options: LiveOptionView[]
+}
+
+/**
+ * The receiving participant's own answer to the question in the snapshot. Rides only on
+ * the private user queue, so a reload can restore what this student picked.
+ */
+export interface OwnAnswerView {
+  questionId: UUID
+  selectedOptionIds: UUID[]
+  freeText: string | null
+  /** 1-based position in the order this question was answered. */
+  ordinal: number
+  /** Time from the question opening to this answer, or null if unknown. */
+  responseTimeMs: number | null
+}
+
+/**
+ * How this participant is doing, from questions that have already CLOSED — the open one
+ * contributes nothing, since answers are only graded when the host closes a question.
+ * That is what makes it safe to show while a question is still running.
+ */
+export interface OwnStandingView {
+  score: number
+  correctCount: number
+  /** 1-based, out of SessionStatePayload.participantCount. */
+  rank: number
 }
 
 export interface SessionStatePayload {
@@ -65,7 +93,15 @@ export interface SessionStatePayload {
   questionOpen: boolean
   participantCount: number
   question: LiveQuestionView | null
-  alreadyAnswered: boolean
+  /** How many have answered the current question. A count only, never a per-option split. */
+  answerCount: number
+  /** null when this participant has not answered the current question — or for the host. */
+  ownAnswer: OwnAnswerView | null
+  /** null until at least one earlier question has been asked and graded. */
+  standing: OwnStandingView | null
+  /** The reveal, once the question has closed; null while it is still open. Replays what
+      the QUESTION_CLOSED broadcast carried, so a reload during the reveal keeps it. */
+  reveal: QuestionClosedPayload | null
 }
 
 /** The only event carrying correct answers, and it goes to participants at reveal time. */

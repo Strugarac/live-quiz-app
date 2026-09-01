@@ -22,6 +22,7 @@ public class SessionMapper {
                 session.getQuiz().getId(),
                 session.getQuiz().getTitle(),
                 session.getQuiz().getType(),
+                session.getQuiz().getConfig().isSurveyMode(),
                 session.getState(),
                 session.getJoinToken(),
                 joinUrl(session.getJoinToken()),

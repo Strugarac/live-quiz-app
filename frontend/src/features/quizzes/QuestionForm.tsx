@@ -33,13 +33,24 @@ interface QuestionFormProps {
   quizId: UUID
   /** Omit to create a new question. */
   question?: QuestionResponse
+  /** The quiz has no right answers, so nothing here asks for one. */
+  surveyMode: boolean
   onSaved: (saved: QuestionResponse) => void
   onCancel: () => void
 }
 
-export function QuestionForm({ quizId, question, onSaved, onCancel }: QuestionFormProps) {
+export function QuestionForm({
+  quizId,
+  question,
+  surveyMode,
+  onSaved,
+  onCancel,
+}: QuestionFormProps) {
   const [draft, setDraft] = useState<DraftQuestion>(() =>
-    question ? toDraft(question) : emptyDraft(),
+    // Editing keeps whatever correct flags the question already has, even in survey mode:
+    // they are simply unused there, and wiping them would lose work if survey mode is
+    // turned off again later.
+    question ? toDraft(question) : emptyDraft(surveyMode),
   )
   const [localError, setLocalError] = useState<string | undefined>()
 
@@ -60,9 +71,11 @@ export function QuestionForm({ quizId, question, onSaved, onCancel }: QuestionFo
       patch({ type })
       return
     }
-    const options = draft.options.length >= 2 ? draft.options : [newOption(true), newOption()]
-    // Single choice allows exactly one correct answer, so collapse any extras.
-    if (type === 'SINGLE_CHOICE' && options.filter((o) => o.correct).length !== 1) {
+    const options =
+      draft.options.length >= 2 ? draft.options : [newOption(!surveyMode), newOption()]
+    // Single choice allows exactly one correct answer, so collapse any extras. Not in a
+    // survey, where forcing one on would mark a right answer that does not exist.
+    if (!surveyMode && type === 'SINGLE_CHOICE' && options.filter((o) => o.correct).length !== 1) {
       const firstCorrect = options.findIndex((o) => o.correct)
       const keep = firstCorrect === -1 ? 0 : firstCorrect
       patch({ type, options: options.map((o, i) => ({ ...o, correct: i === keep })) })
@@ -95,7 +108,7 @@ export function QuestionForm({ quizId, question, onSaved, onCancel }: QuestionFo
   }
 
   const submit = async () => {
-    const problem = validateDraft(draft)
+    const problem = validateDraft(draft, surveyMode)
     if (problem) {
       setLocalError(problem)
       return
@@ -145,9 +158,11 @@ export function QuestionForm({ quizId, question, onSaved, onCancel }: QuestionFo
           <legend className="text-sm font-medium text-slate-700">
             Options
             <span className="ml-2 font-normal text-slate-500">
-              {draft.type === 'SINGLE_CHOICE'
-                ? '— mark exactly one as correct'
-                : '— mark every correct option; participants must select them all'}
+              {surveyMode
+                ? '— no correct answer; the results show how many picked each one'
+                : draft.type === 'SINGLE_CHOICE'
+                  ? '— mark exactly one as correct'
+                  : '— mark every correct option; participants must select them all'}
             </span>
           </legend>
 
@@ -156,16 +171,20 @@ export function QuestionForm({ quizId, question, onSaved, onCancel }: QuestionFo
               key={option.key}
               className="flex items-start gap-3 rounded-lg bg-white p-3 ring-1 ring-slate-200 ring-inset"
             >
-              <label className="mt-2 flex shrink-0 items-center gap-2 text-xs font-medium text-slate-600">
-                <input
-                  type={draft.type === 'SINGLE_CHOICE' ? 'radio' : 'checkbox'}
-                  name="correct-option"
-                  checked={option.correct}
-                  onChange={() => toggleCorrect(option.key)}
-                  className="size-4 accent-emerald-600"
-                />
-                Correct
-              </label>
+              {/* No correct answer exists in a survey, so the control that marks one is gone
+                  rather than disabled — there is nothing to explain to the professor. */}
+              {!surveyMode && (
+                <label className="mt-2 flex shrink-0 items-center gap-2 text-xs font-medium text-slate-600">
+                  <input
+                    type={draft.type === 'SINGLE_CHOICE' ? 'radio' : 'checkbox'}
+                    name="correct-option"
+                    checked={option.correct}
+                    onChange={() => toggleCorrect(option.key)}
+                    className="size-4 accent-emerald-600"
+                  />
+                  Correct
+                </label>
+              )}
 
               <div className="flex-1 space-y-2">
                 <input
@@ -204,8 +223,17 @@ export function QuestionForm({ quizId, question, onSaved, onCancel }: QuestionFo
         </fieldset>
       ) : (
         <p className="rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800 ring-1 ring-amber-200 ring-inset">
-          Free-text answers are collected but <strong>not graded</strong> — they score 0 points and
-          show up verbatim in the session results.
+          {surveyMode ? (
+            <>
+              Written answers show up verbatim in the session results, for you to read through
+              and discuss.
+            </>
+          ) : (
+            <>
+              Free-text answers are collected but <strong>not graded</strong> — they score 0 points
+              and show up verbatim in the session results.
+            </>
+          )}
         </p>
       )}
 

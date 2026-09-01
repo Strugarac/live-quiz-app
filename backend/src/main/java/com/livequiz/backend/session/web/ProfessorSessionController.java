@@ -68,6 +68,12 @@ public class ProfessorSessionController {
                 .body(body);
     }
 
+    @DeleteMapping("/{sessionId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@PathVariable UUID sessionId) {
+        sessionService.delete(sessionId);
+    }
+
     @DeleteMapping("/{sessionId}/results")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void discardResults(@PathVariable UUID sessionId) {
@@ -89,7 +95,6 @@ public class ProfessorSessionController {
         return sessionService.advance(sessionId);
     }
 
-    /** Flexible quizzes only: presents a specific question that has not been asked yet. */
     @PostMapping("/{sessionId}/questions/{questionId}/open")
     public SessionResponse openQuestion(@PathVariable UUID sessionId, @PathVariable UUID questionId) {
         return sessionService.openQuestion(sessionId, questionId);

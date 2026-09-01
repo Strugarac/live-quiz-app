@@ -78,16 +78,35 @@ export function SessionResultsPage() {
         </div>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-[20rem_minmax(0,1fr)]">
-        <LeaderboardPanel
-          rows={data.leaderboard}
-          title="Final standings"
-          emptyHint="No scores were recorded for this session."
-        />
+      {data.surveyMode && (
+        <div className="mb-4 rounded-lg bg-slate-100 px-4 py-3 text-sm text-slate-700">
+          This quiz ran in <strong>survey mode</strong>, so nothing was graded and no scores were
+          kept. What follows is how the answers were distributed.
+        </div>
+      )}
+
+      {/* A survey has no standings, so the breakdowns take the full width instead of
+          leaving a column of empty leaderboard next to them. */}
+      <div
+        className={
+          data.surveyMode ? 'space-y-4' : 'grid gap-6 lg:grid-cols-[20rem_minmax(0,1fr)]'
+        }
+      >
+        {!data.surveyMode && (
+          <LeaderboardPanel
+            rows={data.leaderboard}
+            title="Final standings"
+            emptyHint="No scores were recorded for this session."
+          />
+        )}
 
         <div className="space-y-4">
           {data.questions.map((question) => (
-            <QuestionBreakdownCard key={question.questionId} question={question} />
+            <QuestionBreakdownCard
+              key={question.questionId}
+              question={question}
+              surveyMode={data.surveyMode}
+            />
           ))}
         </div>
       </div>
@@ -123,7 +142,13 @@ export function SessionResultsPage() {
   )
 }
 
-function QuestionBreakdownCard({ question }: { question: QuestionBreakdown }) {
+function QuestionBreakdownCard({
+  question,
+  surveyMode,
+}: {
+  question: QuestionBreakdown
+  surveyMode: boolean
+}) {
   const maxChosen = Math.max(1, ...question.options.map((option) => option.chosenCount))
 
   return (
@@ -132,7 +157,11 @@ function QuestionBreakdownCard({ question }: { question: QuestionBreakdown }) {
         title={`${question.questionIndex + 1}. ${question.text ?? '(image only)'}`}
         description={`${QUESTION_TYPE_LABELS[question.type]} · ${question.answerCount} answers`}
         action={
-          question.type === 'FREE_TEXT' ? (
+          // Nothing was graded in a survey, so correct/wrong counts are both zero and
+          // printing them would read as "everyone got it wrong".
+          surveyMode ? (
+            <Badge tone="slate">No right answer</Badge>
+          ) : question.type === 'FREE_TEXT' ? (
             <Badge tone="amber">Not graded</Badge>
           ) : (
             <div className="flex gap-1.5">
@@ -162,31 +191,36 @@ function QuestionBreakdownCard({ question }: { question: QuestionBreakdown }) {
           )
         ) : (
           <ul className="space-y-2">
-            {question.options.map((option) => (
-              <li
-                key={option.optionId}
-                className={`relative overflow-hidden rounded-lg px-3 py-2 ring-1 ring-inset ${
-                  option.correct ? 'bg-emerald-50 ring-emerald-200' : 'bg-white ring-slate-200'
-                }`}
-              >
-                <span
-                  aria-hidden="true"
-                  className={`absolute inset-y-0 left-0 ${
-                    option.correct ? 'bg-emerald-100' : 'bg-slate-100'
+            {question.options.map((option) => {
+              const showCorrect = option.correct && !surveyMode
+              return (
+                <li
+                  key={option.optionId}
+                  className={`relative overflow-hidden rounded-lg px-3 py-2 ring-1 ring-inset ${
+                    showCorrect ? 'bg-emerald-50 ring-emerald-200' : 'bg-white ring-slate-200'
                   }`}
-                  style={{ width: `${(option.chosenCount / maxChosen) * 100}%` }}
-                />
-                <div className="relative flex items-center justify-between gap-4 text-sm">
-                  <span className={option.correct ? 'font-semibold text-emerald-900' : 'text-slate-700'}>
-                    {option.correct && <span aria-label="Correct answer">✓ </span>}
-                    {option.text ?? '(image)'}
-                  </span>
-                  <span className="shrink-0 text-xs font-semibold text-slate-500">
-                    {option.chosenCount}
-                  </span>
-                </div>
-              </li>
-            ))}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={`absolute inset-y-0 left-0 ${
+                      showCorrect ? 'bg-emerald-100' : 'bg-slate-100'
+                    }`}
+                    style={{ width: `${(option.chosenCount / maxChosen) * 100}%` }}
+                  />
+                  <div className="relative flex items-center justify-between gap-4 text-sm">
+                    <span
+                      className={showCorrect ? 'font-semibold text-emerald-900' : 'text-slate-700'}
+                    >
+                      {showCorrect && <span aria-label="Correct answer">✓ </span>}
+                      {option.text ?? '(image)'}
+                    </span>
+                    <span className="shrink-0 text-xs font-semibold text-slate-500">
+                      {option.chosenCount}
+                    </span>
+                  </div>
+                </li>
+              )
+            })}
           </ul>
         )}
       </div>

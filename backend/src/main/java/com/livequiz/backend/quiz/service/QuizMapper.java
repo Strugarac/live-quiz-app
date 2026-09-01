@@ -40,6 +40,34 @@ public class QuizMapper {
         return quiz;
     }
 
+    public Quiz toCopy(Quiz source, String title) {
+        Quiz copy = new Quiz();
+        copy.setTitle(title);
+        copy.setDescription(source.getDescription());
+        copy.setType(source.getType());
+        copy.setOwnerProfessorId(source.getOwnerProfessorId());
+        copy.setConfig(toConfig(toConfigDto(source.getConfig())));
+        source.getQuestions().forEach(question -> copy.addQuestion(copyQuestion(question)));
+        return copy;
+    }
+
+    private Question copyQuestion(Question source) {
+        Question copy = new Question();
+        copy.setText(source.getText());
+        copy.setImageUrl(source.getImageUrl());
+        copy.setType(source.getType());
+        source.getOptions().forEach(option -> copy.addOption(copyOption(option)));
+        return copy;
+    }
+
+    private AnswerOption copyOption(AnswerOption source) {
+        AnswerOption copy = new AnswerOption();
+        copy.setText(source.getText());
+        copy.setImageUrl(source.getImageUrl());
+        copy.setCorrect(source.isCorrect());
+        return copy;
+    }
+
     public QuizConfig toConfig(QuizConfigDto dto) {
         QuizConfig config = new QuizConfig();
         applyConfig(config, dto);
@@ -52,6 +80,7 @@ public class QuizMapper {
         config.setNameRequirement(dto.nameRequirement());
         config.setSurnameRequirement(dto.surnameRequirement());
         config.setFacultyRequirement(dto.facultyRequirement());
+        config.setSurveyMode(dto.surveyMode());
         config.setSaveStatistics(dto.saveStatistics());
         config.setSaveParticipants(dto.saveParticipants());
     }
@@ -121,6 +150,7 @@ public class QuizMapper {
                 config.getNameRequirement(),
                 config.getSurnameRequirement(),
                 config.getFacultyRequirement(),
+                config.isSurveyMode(),
                 config.isSaveStatistics(),
                 config.isSaveParticipants());
     }

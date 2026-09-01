@@ -28,6 +28,10 @@ import java.util.stream.Collectors;
 @Transactional
 public class QuizService {
 
+    private static final int TITLE_MAX_LENGTH = 255;
+
+    private static final String COPY_SUFFIX = " COPY";
+
     private final QuizRepository quizRepository;
     private final QuizSessionRepository sessionRepository;
     private final QuizMapper mapper;
@@ -48,7 +52,8 @@ public class QuizService {
 
     public QuizResponse create(CreateQuizRequest request) {
         if (request.questions() != null) {
-            request.questions().forEach(questionValidator::validate);
+            boolean surveyMode = request.config().surveyMode();
+            request.questions().forEach(question -> questionValidator.validate(question, surveyMode));
         }
         Quiz quiz = mapper.toNewQuiz(request, currentUser.currentProfessorId());
         return mapper.toResponse(quizRepository.saveAndFlush(quiz));
@@ -60,7 +65,6 @@ public class QuizService {
         if (quizzes.isEmpty()) {
             return List.of();
         }
-        // One grouped count for the whole page rather than a query per quiz.
         Map<UUID, Long> sessionCounts = sessionRepository
                 .countByQuizIdIn(quizzes.stream().map(Quiz::getId).toList()).stream()
                 .collect(Collectors.toMap(QuizSessionCount::getQuizId, QuizSessionCount::getTotal));
@@ -75,17 +79,47 @@ public class QuizService {
         return mapper.toResponse(loadOwned(quizId));
     }
 
+    public QuizResponse copy(UUID quizId) {
+        Quiz source = loadOwned(quizId);
+        Quiz copy = mapper.toCopy(source, copyTitle(source.getTitle()));
+        return mapper.toResponse(quizRepository.saveAndFlush(copy));
+    }
+
+    private static String copyTitle(String title) {
+        int room = TITLE_MAX_LENGTH - COPY_SUFFIX.length();
+        String base = title.length() > room ? title.substring(0, room).stripTrailing() : title;
+        return base + COPY_SUFFIX;
+    }
+
     public QuizResponse update(UUID quizId, UpdateQuizRequest request) {
         Quiz quiz = loadOwned(quizId);
-        // The type decides how a running session navigates, so switching it underneath one
-        // is incoherent: flexible to static would resume the fixed order at the position
-        // after the current question, re-asking anything the host had skipped past.
         if (quiz.getType() != request.type()
                 && sessionRepository.existsByQuiz_IdAndStateIn(quizId, SessionState.LIVE_STATES)) {
             throw new ConflictException(
                     "This quiz has a session that has not ended yet, so its type cannot be changed. "
                             + "End that session first.");
         }
+
+        boolean surveyModeChanged = quiz.getConfig().isSurveyMode() != request.config().surveyMode();
+        if (surveyModeChanged
+                && sessionRepository.existsByQuiz_IdAndStateIn(quizId, SessionState.LIVE_STATES)) {
+            throw new ConflictException(
+                    "This quiz has a session that has not ended yet, so survey mode cannot be "
+                            + "changed. End that session first.");
+        }
+        if (surveyModeChanged && !request.config().surveyMode()) {
+            List<Integer> ungradeable = quiz.getQuestions().stream()
+                    .filter(question -> !questionValidator.hasCorrectOptions(question))
+                    .map(question -> question.getOrderIndex() + 1)
+                    .toList();
+            if (!ungradeable.isEmpty()) {
+                throw new ConflictException(
+                        "Turning survey mode off makes this a scored quiz, but these questions have "
+                                + "no correct answer marked: " + ungradeable
+                                + ". Mark one on each, or leave survey mode on.");
+            }
+        }
+
         quiz.setTitle(request.title());
         quiz.setDescription(request.description());
         quiz.setType(request.type());
@@ -102,15 +136,9 @@ public class QuizService {
         quizRepository.delete(quiz);
     }
 
-    /**
-     * Adding to a quiz with a session in progress is a FLEXIBLE-only privilege: the host
-     * picks each question there, so a late addition simply joins the pool of questions
-     * still available to ask. A static quiz runs a fixed order that participants are
-     * already partway through, so its question list is frozen once the session is running.
-     */
     public QuestionResponse addQuestion(UUID quizId, QuestionRequest request) {
-        questionValidator.validate(request);
         Quiz quiz = loadOwned(quizId);
+        questionValidator.validate(request, quiz.getConfig().isSurveyMode());
         if (quiz.getType() != QuizType.FLEXIBLE
                 && sessionRepository.existsByQuiz_IdAndStateIn(quizId, List.of(SessionState.ACTIVE))) {
             throw new ConflictException(
@@ -124,8 +152,8 @@ public class QuizService {
     }
 
     public QuestionResponse updateQuestion(UUID quizId, UUID questionId, QuestionRequest request) {
-        questionValidator.validate(request);
         Quiz quiz = loadOwned(quizId);
+        questionValidator.validate(request, quiz.getConfig().isSurveyMode());
         Question question = findQuestion(quiz, questionId);
         requireNotAsked(questionId, "edited");
 
@@ -147,12 +175,6 @@ public class QuizService {
         quiz.removeQuestion(question);
     }
 
-    /**
-     * Refuses to touch a question a running session has already presented. Participants
-     * have seen it and their answers may already be graded against its options, so a change
-     * would rewrite history mid-lecture. Questions not yet asked stay editable, which is
-     * what lets a flexible session be adjusted while it runs.
-     */
     private void requireNotAsked(UUID questionId, String action) {
         if (sessionRepository.existsAskedInSessionStates(questionId, SessionState.LIVE_STATES)) {
             throw new ConflictException(

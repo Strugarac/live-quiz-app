@@ -223,7 +223,8 @@ function HostConsole({ host }: { host: Host }) {
               />
             )}
           </div>
-          <LeaderboardPanel rows={host.leaderboard} />
+          {/* A survey keeps no score, so there is no standing to show. */}
+          {!session.surveyMode && <LeaderboardPanel rows={host.leaderboard} />}
         </div>
       )}
 
@@ -232,7 +233,9 @@ function HostConsole({ host }: { host: Host }) {
           <Card className="px-5 py-10 text-center">
             <p className="text-lg font-semibold text-slate-900">This session has ended.</p>
             <p className="mx-auto mt-1 max-w-md text-sm text-slate-500">
-              Final standings, per-question statistics and the CSV export are on the results page.
+              {session.surveyMode
+                ? 'Per-question answer breakdowns and the CSV export are on the results page.'
+                : 'Final standings, per-question statistics and the CSV export are on the results page.'}
             </p>
             <Link
               to={`/sessions/${session.id}/results`}
@@ -241,7 +244,9 @@ function HostConsole({ host }: { host: Host }) {
               Open results →
             </Link>
           </Card>
-          <LeaderboardPanel rows={host.leaderboard} title="Final standings" />
+          {!session.surveyMode && (
+            <LeaderboardPanel rows={host.leaderboard} title="Final standings" />
+          )}
         </div>
       )}
 
@@ -254,6 +259,7 @@ function HostConsole({ host }: { host: Host }) {
       >
         <QuestionForm
           quizId={session.quizId}
+          surveyMode={session.surveyMode}
           onSaved={(saved) => {
             host.questionAdded(saved)
             setAddingQuestion(false)

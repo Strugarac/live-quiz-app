@@ -1,6 +1,8 @@
 package com.livequiz.backend.quiz.service;
 
 import com.livequiz.backend.common.exception.BadRequestException;
+import com.livequiz.backend.quiz.domain.AnswerOption;
+import com.livequiz.backend.quiz.domain.Question;
 import com.livequiz.backend.quiz.dto.OptionRequest;
 import com.livequiz.backend.quiz.dto.QuestionRequest;
 import org.springframework.stereotype.Component;
@@ -11,7 +13,7 @@ import java.util.Optional;
 @Component
 public class QuestionValidator {
 
-    public void validate(QuestionRequest question) {
+    public void validate(QuestionRequest question, boolean surveyMode) {
         if (isBlank(question.text()) && isBlank(question.imageUrl())) {
             throw new BadRequestException("A question must have text and/or an image");
         }
@@ -26,19 +28,31 @@ public class QuestionValidator {
             }
             case SINGLE_CHOICE -> {
                 requireMinOptions(options);
-                if (countCorrect(options) != 1) {
+                if (!surveyMode && countCorrect(options) != 1) {
                     throw new BadRequestException("Single-choice questions must have exactly one correct option");
                 }
                 validateOptionContent(options);
             }
             case MULTI_CHOICE -> {
                 requireMinOptions(options);
-                if (countCorrect(options) < 1) {
+                if (!surveyMode && countCorrect(options) < 1) {
                     throw new BadRequestException("Multi-choice questions must have at least one correct option");
                 }
                 validateOptionContent(options);
             }
         }
+    }
+
+    public boolean hasCorrectOptions(Question question) {
+        return switch (question.getType()) {
+            case FREE_TEXT -> true;
+            case SINGLE_CHOICE -> countCorrectOptions(question) == 1;
+            case MULTI_CHOICE -> countCorrectOptions(question) >= 1;
+        };
+    }
+
+    private long countCorrectOptions(Question question) {
+        return question.getOptions().stream().filter(AnswerOption::isCorrect).count();
     }
 
     private void requireMinOptions(List<OptionRequest> options) {

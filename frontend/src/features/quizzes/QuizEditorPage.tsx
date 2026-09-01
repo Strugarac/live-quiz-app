@@ -250,6 +250,7 @@ function QuestionsSection({
               key={question.id}
               quizId={quiz.id}
               question={question}
+              surveyMode={quiz.config.surveyMode}
               onSaved={replaceQuestion}
               onCancel={() => setEditingId(undefined)}
             />
@@ -258,6 +259,7 @@ function QuestionsSection({
               key={question.id}
               question={question}
               position={index + 1}
+              surveyMode={quiz.config.surveyMode}
               onEdit={() => setEditingId(question.id)}
               onDelete={() => setPendingDelete(question)}
             />
@@ -267,6 +269,7 @@ function QuestionsSection({
         {adding && (
           <QuestionForm
             quizId={quiz.id}
+            surveyMode={quiz.config.surveyMode}
             onSaved={appendQuestion}
             onCancel={() => setAdding(false)}
           />
@@ -297,11 +300,13 @@ function QuestionsSection({
 function QuestionRow({
   question,
   position,
+  surveyMode,
   onEdit,
   onDelete,
 }: {
   question: QuestionResponse
   position: number
+  surveyMode: boolean
   onEdit: () => void
   onDelete: () => void
 }) {
@@ -328,19 +333,24 @@ function QuestionRow({
 
           {question.options.length > 0 && (
             <ul className="mt-2 flex flex-wrap gap-1.5">
-              {question.options.map((option) => (
-                <li
-                  key={option.id}
-                  className={`rounded-md px-2 py-1 text-xs ${
-                    option.correct
-                      ? 'bg-emerald-50 font-semibold text-emerald-800 ring-1 ring-emerald-200 ring-inset'
-                      : 'bg-slate-50 text-slate-600'
-                  }`}
-                >
-                  {option.correct && <span aria-label="Correct answer">✓ </span>}
-                  {option.text ?? '(image)'}
-                </li>
-              ))}
+              {question.options.map((option) => {
+                // Survey mode ignores the stored correct flags, so showing one here would
+                // claim a right answer the session will never reveal.
+                const showAsCorrect = option.correct && !surveyMode
+                return (
+                  <li
+                    key={option.id}
+                    className={`rounded-md px-2 py-1 text-xs ${
+                      showAsCorrect
+                        ? 'bg-emerald-50 font-semibold text-emerald-800 ring-1 ring-emerald-200 ring-inset'
+                        : 'bg-slate-50 text-slate-600'
+                    }`}
+                  >
+                    {showAsCorrect && <span aria-label="Correct answer">✓ </span>}
+                    {option.text ?? '(image)'}
+                  </li>
+                )
+              })}
             </ul>
           )}
         </div>
