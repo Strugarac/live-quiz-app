@@ -8,15 +8,27 @@ interface QuizConfigCardProps {
   onChange: (config: QuizConfigDto) => void
 }
 
-/** Participant registration fields + what happens to the data after a session. */
+/** How the quiz is scored, what each student is asked for, and what is kept afterwards. */
 export function QuizConfigCard({ config, onChange }: QuizConfigCardProps) {
   return (
     <Card>
       <CardHeader
-        title="Participant registration"
-        description="What each student is asked for when they join a session from this quiz."
+        title="Quiz settings"
+        description="How answers are treated, what each student is asked when they join, and what is kept afterwards."
       />
       <div className="space-y-5 px-5 py-4">
+        <div className="space-y-4 border-b border-slate-200 pb-4">
+          <h3 className="text-sm font-semibold text-slate-900">Scoring</h3>
+          <Checkbox
+            label="Survey mode — no right or wrong answers"
+            description="On: nothing is marked correct, answers are not graded, and there is no score or leaderboard. Use it to open a discussion or run a survey — you still see how many people picked each option. Questions written this way need no correct answer marked."
+            checked={config.surveyMode}
+            onChange={(surveyMode) => onChange({ ...config, surveyMode })}
+          />
+        </div>
+
+        <h3 className="text-sm font-semibold text-slate-900">Participant registration</h3>
+
         <div className="rounded-lg bg-slate-50 px-4 py-3 text-sm ring-1 ring-slate-200 ring-inset">
           <p className="font-medium text-slate-700">Email — always required</p>
           <p className="mt-0.5 text-xs text-slate-500">

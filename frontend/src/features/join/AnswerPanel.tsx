@@ -2,30 +2,23 @@ import { useState } from 'react'
 import type { UUID } from '../../lib/api/types'
 import { Button } from '../../components/ui/Button'
 import type { LiveQuestionView, QuestionClosedPayload } from '../../lib/ws/liveTypes'
-
-/** Distinct colours per option, the way quiz games do, so choices are easy to hit. */
-const OPTION_COLORS = [
-  'bg-rose-500 hover:bg-rose-400',
-  'bg-sky-500 hover:bg-sky-400',
-  'bg-amber-500 hover:bg-amber-400',
-  'bg-violet-500 hover:bg-violet-400',
-  'bg-emerald-500 hover:bg-emerald-400',
-  'bg-cyan-500 hover:bg-cyan-400',
-]
+import { optionColor, optionLetter } from './optionColors'
 
 interface AnswerPanelProps {
   question: LiveQuestionView
   questionOpen: boolean
-  alreadyAnswered: boolean
   reveal: QuestionClosedPayload | undefined
   ownSelection: UUID[]
   onSubmit: (optionIds: UUID[], freeText: string | null) => void
 }
 
+/**
+ * The board of options, and the reveal once the question closes. JoinPage swaps in
+ * SubmittedPanel for the one case this does not cover: answered while still open.
+ */
 export function AnswerPanel({
   question,
   questionOpen,
-  alreadyAnswered,
   reveal,
   ownSelection,
   onSubmit,
@@ -34,7 +27,10 @@ export function AnswerPanel({
   const [freeText, setFreeText] = useState('')
 
   const revealed = reveal?.questionId === question.questionId ? reveal : undefined
-  const locked = alreadyAnswered || !questionOpen
+  const locked = !questionOpen
+  // A survey reveals that the question is over, not what the answer was.
+  const gradedReveal = revealed !== undefined && !question.surveyMode
+  const surveyReveal = revealed !== undefined && question.surveyMode
 
   const toggle = (optionId: UUID) => {
     setSelected((current) => {
@@ -99,17 +95,19 @@ export function AnswerPanel({
                   disabled={locked}
                   onClick={() => toggle(option.id)}
                   className={`flex w-full items-center gap-3 rounded-xl px-4 py-4 text-left text-base font-semibold text-white transition-all disabled:cursor-not-allowed ${
-                    revealed
+                    gradedReveal
                       ? isCorrect
                         ? 'bg-emerald-600'
                         : 'bg-slate-300 text-slate-600'
-                      : OPTION_COLORS[index % OPTION_COLORS.length]
+                      : `${optionColor(index).base} ${optionColor(index).hover}`
                   } ${isSelected && !revealed ? 'ring-4 ring-slate-900/20' : ''} ${
-                    locked && !revealed ? 'opacity-60' : ''
-                  }`}
+                    // A survey keeps every option in its own colour at reveal — greying them
+                    // all out would read as "everyone got it wrong". Only the pick stands out.
+                    surveyReveal && !wasPicked ? 'opacity-50' : ''
+                  } ${locked && !revealed ? 'opacity-60' : ''}`}
                 >
                   <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-white/25 text-sm">
-                    {revealed && isCorrect ? '✓' : String.fromCharCode(65 + index)}
+                    {gradedReveal && isCorrect ? '✓' : optionLetter(index)}
                   </span>
                   <span className="min-w-0 flex-1">
                     {option.text ?? '(image)'}
@@ -147,12 +145,8 @@ export function AnswerPanel({
         </Button>
       )}
 
-      {alreadyAnswered && questionOpen && (
-        <p className="mt-5 rounded-xl bg-emerald-50 px-4 py-3 text-center text-sm font-semibold text-emerald-800">
-          Answer submitted — waiting for the others…
-        </p>
-      )}
-
+      {/* The snapshot replays the reveal after a reload, so a closed question should always
+          arrive with one. This is the fallback for the case where it somehow does not. */}
       {!questionOpen && !revealed && (
         <p className="mt-5 rounded-xl bg-slate-100 px-4 py-3 text-center text-sm text-slate-600">
           This question is closed.
@@ -171,6 +165,16 @@ function RevealBanner({
   question: LiveQuestionView
   ownSelection: UUID[]
 }) {
+  // A survey has no right answer, so there is nothing to be right or wrong about. Without
+  // this the empty correct set would grade everyone as "Not quite".
+  if (question.surveyMode) {
+    return (
+      <p className="mt-4 rounded-xl bg-slate-100 px-4 py-3 text-center text-sm text-slate-600">
+        No right answer here — your professor is collecting what everyone thinks.
+      </p>
+    )
+  }
+
   if (question.type === 'FREE_TEXT') {
     return (
       <p className="mt-4 rounded-xl bg-slate-100 px-4 py-3 text-center text-sm text-slate-600">

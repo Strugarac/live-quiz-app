@@ -61,6 +61,13 @@ export const sessionApi = {
   exportResultsCsv: (sessionId: UUID) =>
     downloadFile(`/professor/sessions/${sessionId}/results/export`, `results-${sessionId}.csv`),
 
+  /**
+   * Deletes the session and everything recorded under it. 409 while it is ACTIVE — end it
+   * first; a LOBBY session can be deleted without ending it.
+   */
+  remove: (sessionId: UUID) =>
+    request<void>(`/professor/sessions/${sessionId}`, { method: 'DELETE' }),
+
   /** Deletes answers and participants, keeping the ended session. 409 unless ENDED. */
   discardResults: (sessionId: UUID) =>
     request<void>(`/professor/sessions/${sessionId}/results`, { method: 'DELETE' }),

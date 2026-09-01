@@ -9,6 +9,7 @@ public record QuizConfigDto(
         @NotNull FieldRequirement nameRequirement,
         @NotNull FieldRequirement surnameRequirement,
         @NotNull FieldRequirement facultyRequirement,
+        boolean surveyMode,
         boolean saveStatistics,
         boolean saveParticipants
 ) {

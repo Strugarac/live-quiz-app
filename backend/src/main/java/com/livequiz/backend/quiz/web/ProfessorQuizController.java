@@ -49,6 +49,12 @@ public class ProfessorQuizController {
         return quizService.get(quizId);
     }
 
+    @PostMapping("/{quizId}/copy")
+    @ResponseStatus(HttpStatus.CREATED)
+    public QuizResponse copy(@PathVariable UUID quizId) {
+        return quizService.copy(quizId);
+    }
+
     @PutMapping("/{quizId}")
     public QuizResponse update(@PathVariable UUID quizId, @Valid @RequestBody UpdateQuizRequest request) {
         return quizService.update(quizId, request);

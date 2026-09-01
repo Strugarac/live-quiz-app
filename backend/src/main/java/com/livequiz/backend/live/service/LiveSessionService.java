@@ -6,6 +6,9 @@ import com.livequiz.backend.common.exception.NotFoundException;
 import com.livequiz.backend.live.domain.ParticipantAnswer;
 import com.livequiz.backend.live.dto.AnswerReceivedPayload;
 import com.livequiz.backend.live.dto.LiveEventType;
+import com.livequiz.backend.live.dto.OwnAnswerView;
+import com.livequiz.backend.live.dto.OwnStandingView;
+import com.livequiz.backend.live.dto.QuestionClosedPayload;
 import com.livequiz.backend.live.dto.SessionStatePayload;
 import com.livequiz.backend.live.dto.SubmitAnswerMessage;
 import com.livequiz.backend.live.repository.ParticipantAnswerRepository;
@@ -15,6 +18,7 @@ import com.livequiz.backend.participant.repository.ParticipantRepository;
 import com.livequiz.backend.quiz.domain.AnswerOption;
 import com.livequiz.backend.quiz.domain.Question;
 import com.livequiz.backend.quiz.domain.QuestionType;
+import com.livequiz.backend.scoring.service.ScoringService;
 import com.livequiz.backend.session.domain.QuizSession;
 import com.livequiz.backend.session.domain.SessionState;
 import com.livequiz.backend.session.repository.QuizSessionRepository;
@@ -37,17 +41,20 @@ public class LiveSessionService {
     private final ParticipantAnswerRepository answerRepository;
     private final LiveEventPublisher publisher;
     private final LiveMapper mapper;
+    private final ScoringService scoringService;
 
     public LiveSessionService(QuizSessionRepository sessionRepository,
                               ParticipantRepository participantRepository,
                               ParticipantAnswerRepository answerRepository,
                               LiveEventPublisher publisher,
-                              LiveMapper mapper) {
+                              LiveMapper mapper,
+                              ScoringService scoringService) {
         this.sessionRepository = sessionRepository;
         this.participantRepository = participantRepository;
         this.answerRepository = answerRepository;
         this.publisher = publisher;
         this.mapper = mapper;
+        this.scoringService = scoringService;
     }
 
     public void submitAnswer(LiveUser user, SubmitAnswerMessage message) {
@@ -87,11 +94,12 @@ public class LiveSessionService {
         answer.setResponseTimeMs(responseTimeMs(session, answer.getSubmittedAt()));
         answerRepository.saveAndFlush(answer);
 
-        publisher.toHost(session.getJoinToken(), LiveEventType.ANSWER_RECEIVED, new AnswerReceivedPayload(
-                question.getId(),
-                session.getCurrentQuestionIndex(),
-                answerRepository.countBySession_IdAndQuestion_Id(session.getId(), question.getId()),
-                participantRepository.countBySession_Id(session.getId())));
+        publisher.toParticipants(session.getJoinToken(), LiveEventType.ANSWER_RECEIVED,
+                new AnswerReceivedPayload(
+                        question.getId(),
+                        session.getCurrentQuestionIndex(),
+                        answerRepository.countBySession_IdAndQuestion_Id(session.getId(), question.getId()),
+                        participantRepository.countBySession_Id(session.getId())));
 
         publisher.toUser(user.getName(), LiveEventType.ANSWER_ACCEPTED, snapshotOf(session, participant));
     }
@@ -107,9 +115,26 @@ public class LiveSessionService {
 
     private SessionStatePayload snapshotOf(QuizSession session, Participant participant) {
         boolean showQuestion = session.getState() == SessionState.ACTIVE && session.hasCurrentQuestion();
-        boolean alreadyAnswered = showQuestion && participant != null
-                && answerRepository.existsByParticipant_IdAndQuestion_Id(
-                participant.getId(), session.currentQuestion().getId());
+        long answerCount = showQuestion
+                ? answerRepository.countBySession_IdAndQuestion_Id(
+                session.getId(), session.currentQuestion().getId())
+                : 0;
+
+        OwnAnswerView ownAnswer = showQuestion && participant != null
+                ? answerRepository
+                .findByParticipant_IdAndQuestion_Id(participant.getId(), session.currentQuestion().getId())
+                .map(answer -> mapper.toOwnAnswer(answer, ordinalOf(session, answer)))
+                .orElse(null)
+                : null;
+
+        OwnStandingView standing = showQuestion && participant != null
+                ? standingOf(session, participant)
+                : null;
+
+        QuestionClosedPayload reveal = showQuestion && !session.isQuestionOpen()
+                ? mapper.toClosedPayload(session, answerRepository.countBySession_IdAndQuestion_Id(
+                session.getId(), session.currentQuestion().getId()))
+                : null;
 
         return new SessionStatePayload(
                 session.getId(),
@@ -119,7 +144,27 @@ public class LiveSessionService {
                 session.isQuestionOpen(),
                 participantRepository.countBySession_Id(session.getId()),
                 showQuestion ? mapper.toQuestionView(session) : null,
-                alreadyAnswered);
+                answerCount,
+                ownAnswer,
+                standing,
+                reveal);
+    }
+
+    private int ordinalOf(QuizSession session, ParticipantAnswer answer) {
+        return (int) answerRepository.countBySession_IdAndQuestion_IdAndSubmittedAtLessThanEqual(
+                session.getId(), answer.getQuestion().getId(), answer.getSubmittedAt());
+    }
+
+    private OwnStandingView standingOf(QuizSession session, Participant participant) {
+        // A survey keeps no score, so there is no standing to report.
+        if (session.getQuiz().getConfig().isSurveyMode() || session.askedPosition() <= 1) {
+            return null;
+        }
+        return scoringService.leaderboard(session).rows().stream()
+                .filter(row -> row.participantId().equals(participant.getId()))
+                .findFirst()
+                .map(row -> new OwnStandingView(row.score(), row.correctCount(), row.rank()))
+                .orElse(null);
     }
 
     private Set<UUID> validate(Question question, SubmitAnswerMessage message) {

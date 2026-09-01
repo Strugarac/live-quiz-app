@@ -51,6 +51,8 @@ export const DEFAULT_CONFIG: QuizConfigDto = {
   surnameRequirement: 'REQUIRED',
   personalNumberRequirement: 'OPTIONAL',
   facultyRequirement: 'HIDDEN',
+  // Off by default: a quiz is scored unless the professor says otherwise.
+  surveyMode: false,
   saveStatistics: true,
   saveParticipants: true,
 }

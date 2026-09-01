@@ -11,17 +11,12 @@ public record SessionResponse(
         UUID id,
         UUID quizId,
         String quizTitle,
-        /** FLEXIBLE lets the host choose each question and add questions while running. */
         QuizType quizType,
+        boolean surveyMode,
         SessionState state,
         String joinToken,
         String joinUrl,
         Integer currentQuestionIndex,
-        /**
-         * Questions already presented, in presentation order. The console subtracts these
-         * from the quiz to offer the host what is still available to ask, which keeps
-         * working when a question is added mid-session.
-         */
         List<UUID> askedQuestionIds,
         boolean questionOpen,
         int questionCount,

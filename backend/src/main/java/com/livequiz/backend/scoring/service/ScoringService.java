@@ -47,10 +47,12 @@ public class ScoringService {
                 .map(AnswerOption::getId)
                 .collect(Collectors.toSet());
 
+        boolean surveyMode = session.getQuiz().getConfig().isSurveyMode();
+
         List<ParticipantAnswer> answers =
                 answerRepository.findBySession_IdAndQuestion_Id(session.getId(), question.getId());
         for (ParticipantAnswer answer : answers) {
-            grade(answer, question.getType(), correctOptions);
+            grade(answer, surveyMode ? QuestionType.FREE_TEXT : question.getType(), correctOptions);
         }
         answerRepository.saveAll(answers);
     }
@@ -68,10 +70,13 @@ public class ScoringService {
 
     @Transactional(readOnly = true)
     public LeaderboardPayload leaderboard(QuizSession session) {
+        if (session.getQuiz().getConfig().isSurveyMode()) {
+            return new LeaderboardPayload(session.getId(), List.of());
+        }
+
         List<Participant> participants =
                 participantRepository.findBySession_IdOrderByCreatedAtAsc(session.getId());
 
-        // participantId -> [totalPoints, correctCount], accumulated from graded answers.
         Map<UUID, long[]> tally = new HashMap<>();
         for (ParticipantAnswer answer : answerRepository.findBySession_IdOrderByQuestionIndexAsc(session.getId())) {
             long[] t = tally.computeIfAbsent(answer.getParticipant().getId(), k -> new long[2]);

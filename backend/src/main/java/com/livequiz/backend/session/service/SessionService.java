@@ -3,7 +3,6 @@ package com.livequiz.backend.session.service;
 import com.livequiz.backend.common.exception.ConflictException;
 import com.livequiz.backend.common.exception.NotFoundException;
 import com.livequiz.backend.live.dto.LiveEventType;
-import com.livequiz.backend.live.dto.QuestionClosedPayload;
 import com.livequiz.backend.live.dto.SessionEndedPayload;
 import com.livequiz.backend.live.repository.ParticipantAnswerRepository;
 import com.livequiz.backend.live.service.LiveEventPublisher;
@@ -24,6 +23,7 @@ import com.livequiz.backend.security.CurrentUserProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -106,6 +106,19 @@ public class SessionService {
         return resultsService.exportCsv(loadOwned(sessionId));
     }
 
+    public void delete(UUID sessionId) {
+        QuizSession session = loadOwned(sessionId);
+        if (session.getState() == SessionState.ACTIVE) {
+            throw new ConflictException(
+                    "This session is running. End it before deleting it.");
+        }
+        if (session.getState() == SessionState.LOBBY) {
+            publisher.toParticipants(session.getJoinToken(), LiveEventType.SESSION_ENDED,
+                    new SessionEndedPayload(session.getId(), session.questionCount(), Instant.now()));
+        }
+        sessionRepository.delete(session);
+    }
+
     public void discardResults(UUID sessionId) {
         QuizSession session = loadOwned(sessionId);
         if (session.getState() != SessionState.ENDED) {
@@ -117,18 +130,12 @@ public class SessionService {
     public SessionResponse start(UUID sessionId) {
         QuizSession session = loadOwned(sessionId);
         session.start();
-        // A flexible session starts without a question — participants stay on the waiting
-        // screen until the host picks one, so there is nothing to broadcast yet.
         if (session.hasCurrentQuestion()) {
             broadcastQuestionOpened(session);
         }
         return mapper.toResponse(session);
     }
 
-    /**
-     * Presents a question the host chose. Flexible quizzes only; a static quiz uses
-     * {@link #advance(UUID)}, which walks the fixed order.
-     */
     public SessionResponse openQuestion(UUID sessionId, UUID questionId) {
         QuizSession session = loadOwned(sessionId);
         Question question = session.getQuiz().getQuestions().stream()
@@ -136,8 +143,6 @@ public class SessionService {
                 .findFirst()
                 .orElseThrow(() -> NotFoundException.of("Question", questionId));
 
-        // Same contract as advancing: an open question is closed and graded first, so
-        // moving on can never drop answers that were already in.
         if (session.isQuestionOpen()) {
             closeCurrentQuestion(session);
         }
@@ -180,12 +185,9 @@ public class SessionService {
         Question question = session.currentQuestion();
         session.closeQuestion();
         scoringService.gradeQuestion(session, question);
-        publisher.toParticipants(session.getJoinToken(), LiveEventType.QUESTION_CLOSED, new QuestionClosedPayload(
-                question.getId(),
-                session.getCurrentQuestionIndex(),
-                liveMapper.correctOptionIds(question),
-                answerRepository.countBySession_IdAndQuestion_Id(session.getId(), question.getId()),
-                session.hasNextQuestion()));
+        publisher.toParticipants(session.getJoinToken(), LiveEventType.QUESTION_CLOSED,
+                liveMapper.toClosedPayload(session,
+                        answerRepository.countBySession_IdAndQuestion_Id(session.getId(), question.getId())));
         publisher.toHost(session.getJoinToken(), LiveEventType.LEADERBOARD_UPDATED,
                 scoringService.leaderboard(session));
     }

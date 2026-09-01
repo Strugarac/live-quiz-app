@@ -22,12 +22,17 @@ export function newOption(correct = false): DraftOption {
   return { key: `opt-${optionKeySeq}`, text: '', imageUrl: '', correct }
 }
 
-export function emptyDraft(): DraftQuestion {
+/**
+ * A survey starts with nothing marked correct. Pre-marking an option would be invisible —
+ * the control that shows it is hidden in survey mode — and would later let the quiz be
+ * switched back to scored with an arbitrary option silently standing as the right answer.
+ */
+export function emptyDraft(surveyMode = false): DraftQuestion {
   return {
     text: '',
     imageUrl: '',
     type: 'SINGLE_CHOICE',
-    options: [newOption(true), newOption()],
+    options: [newOption(!surveyMode), newOption()],
   }
 }
 
@@ -36,7 +41,7 @@ export function emptyDraft(): DraftQuestion {
  * the same rules immediately instead of a round-trip 400. The backend remains
  * the authority — its message is what gets displayed if these ever diverge.
  */
-export function validateDraft(draft: DraftQuestion): string | undefined {
+export function validateDraft(draft: DraftQuestion, surveyMode = false): string | undefined {
   if (!draft.text.trim() && !draft.imageUrl.trim()) {
     return 'A question must have text and/or an image'
   }
@@ -49,12 +54,16 @@ export function validateDraft(draft: DraftQuestion): string | undefined {
     return 'Choice questions must have at least two options'
   }
 
-  const correctCount = draft.options.filter((option) => option.correct).length
-  if (draft.type === 'SINGLE_CHOICE' && correctCount !== 1) {
-    return 'Single-choice questions must have exactly one correct option'
-  }
-  if (draft.type === 'MULTI_CHOICE' && correctCount < 1) {
-    return 'Multiple-choice questions must have at least one correct option'
+  // A survey has no right answer, so the rules about which options are correct do not
+  // apply. Everything else still does.
+  if (!surveyMode) {
+    const correctCount = draft.options.filter((option) => option.correct).length
+    if (draft.type === 'SINGLE_CHOICE' && correctCount !== 1) {
+      return 'Single-choice questions must have exactly one correct option'
+    }
+    if (draft.type === 'MULTI_CHOICE' && correctCount < 1) {
+      return 'Multiple-choice questions must have at least one correct option'
+    }
   }
 
   const everyOptionHasContent = draft.options.every(

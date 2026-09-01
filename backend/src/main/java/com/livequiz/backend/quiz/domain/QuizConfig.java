@@ -37,6 +37,9 @@ public class QuizConfig extends BaseEntity {
     @Column(name = "faculty_requirement", nullable = false, length = 20)
     private FieldRequirement facultyRequirement = FieldRequirement.HIDDEN;
 
+    @Column(name = "survey_mode", nullable = false)
+    private boolean surveyMode;
+
     @Column(name = "save_statistics", nullable = false)
     private boolean saveStatistics;
 

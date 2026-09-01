@@ -92,8 +92,9 @@ export function LiveQuestionPanel({
           <ul className="mt-5 space-y-2">
             {question.options.map((option) => {
               // Correct options are highlighted only after the question closes, so a
-              // projector showing this screen does not give the answer away.
-              const showCorrect = closed && option.correct
+              // projector showing this screen does not give the answer away. A survey has
+              // no correct option at all, whatever flags the quiz definition still carries.
+              const showCorrect = closed && option.correct && !session.surveyMode
               const chosen = chosenCounts.get(option.id)
 
               return (

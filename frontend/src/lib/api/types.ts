@@ -24,6 +24,11 @@ export interface QuizConfigDto {
   nameRequirement: FieldRequirement
   surnameRequirement: FieldRequirement
   facultyRequirement: FieldRequirement
+  /**
+   * true => no right or wrong answers. Options carry no correct flag, nothing is graded,
+   * and the session has no scoring or leaderboard — for discussion and surveys.
+   */
+  surveyMode: boolean
   /** false => the round's data can be cleared after the session ends. */
   saveStatistics: boolean
   /** false => participant identities are wiped when the session ends. */
@@ -107,6 +112,8 @@ export interface SessionResponse {
   quizTitle: string
   /** FLEXIBLE lets the host choose each question and add questions while running. */
   quizType: QuizType
+  /** The quiz has no right answers: no scoring, no leaderboard. */
+  surveyMode: boolean
   state: SessionState
   joinToken: string
   /** Full URL participants open; the backend builds it from app.join-base-url. */
@@ -189,6 +196,8 @@ export interface SessionResultsResponse {
   endedAt: string | null
   participantCount: number
   questionCount: number
+  /** No right answers were scored: leaderboard is empty and correct counts are all 0. */
+  surveyMode: boolean
   saveStatistics: boolean
   saveParticipants: boolean
   leaderboard: LeaderboardRow[]

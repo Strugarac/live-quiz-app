@@ -12,6 +12,9 @@ public record SessionStatePayload(
         boolean questionOpen,
         long participantCount,
         LiveQuestionView question,
-        boolean alreadyAnswered
+        long answerCount,
+        OwnAnswerView ownAnswer,
+        OwnStandingView standing,
+        QuestionClosedPayload reveal
 ) {
 }

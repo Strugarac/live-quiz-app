@@ -1,10 +1,11 @@
-import { useCallback } from 'react'
+import { useCallback, useState } from 'react'
 import { Link } from 'react-router'
 import { sessionApi } from '../../lib/api/sessions'
-import type { SessionState } from '../../lib/api/types'
-import { useAsync } from '../../lib/useAsync'
+import type { SessionResponse, SessionState } from '../../lib/api/types'
+import { useAction, useAsync } from '../../lib/useAsync'
 import { Badge, Card, EmptyState, ErrorBanner, Spinner } from '../../components/ui/Feedback'
 import { Button } from '../../components/ui/Button'
+import { ConfirmDialog } from '../../components/ui/Modal'
 import { formatDate } from '../quizzes/quizLabels'
 
 const STATE_TONE: Record<SessionState, 'green' | 'brand' | 'slate'> = {
@@ -15,6 +16,28 @@ const STATE_TONE: Record<SessionState, 'green' | 'brand' | 'slate'> = {
 
 export function SessionsListPage() {
   const sessions = useAsync(useCallback((signal: AbortSignal) => sessionApi.list(signal), []))
+  const [pendingDelete, setPendingDelete] = useState<SessionResponse | undefined>()
+
+  const remove = useAction(sessionApi.remove)
+
+  const confirmDelete = async () => {
+    if (!pendingDelete) {
+      return
+    }
+    const result = await remove.run(pendingDelete.id)
+    if (result.ok) {
+      setPendingDelete(undefined)
+      // Drop the row locally and do NOT refetch. The delete succeeded, so the server's list
+      // is this list minus that row; refetching cannot tell us anything new.
+      //
+      // Refetching here also made deleted sessions flash back onto the screen. The exact
+      // cause was never pinned down — useAsync keeping the previous data while revalidating
+      // is the likely suspect, but filtering that cached list first did not fix it. Not
+      // refetching removes the window entirely. If the flash ever appears elsewhere, the
+      // reload-after-mutation paths (such as copying a quiz) are where to look.
+      sessions.setData((sessions.data ?? []).filter((row) => row.id !== pendingDelete.id))
+    }
+  }
 
   return (
     <>
@@ -80,6 +103,18 @@ export function SessionsListPage() {
                           Open console
                         </Link>
                       )}
+                      {/* A running session has to be ended first, so offering Delete on it
+                          would only ever produce a 409. */}
+                      {session.state !== 'ACTIVE' && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setPendingDelete(session)}
+                          className="ml-3 text-red-600 hover:bg-red-50"
+                        >
+                          Delete
+                        </Button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -88,6 +123,39 @@ export function SessionsListPage() {
           </div>
         </Card>
       )}
+
+      <ConfirmDialog
+        open={Boolean(pendingDelete)}
+        title="Delete session"
+        pending={remove.pending}
+        confirmLabel="Delete session"
+        message={
+          <>
+            <p>
+              Delete the session of <strong>{pendingDelete?.quizTitle}</strong> from{' '}
+              {pendingDelete && formatDate(pendingDelete.createdAt)}?
+            </p>
+            {pendingDelete?.state === 'ENDED' ? (
+              <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-amber-900 ring-1 ring-amber-200 ring-inset">
+                Its participants, answers and leaderboard go with it — export the CSV from the
+                results page first if you still need it.
+              </p>
+            ) : (
+              <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-amber-900 ring-1 ring-amber-200 ring-inset">
+                Anyone already waiting in the lobby will be dropped, and the join code{' '}
+                <strong>{pendingDelete?.joinToken}</strong> will stop working.
+              </p>
+            )}
+            <p className="mt-2 text-slate-500">The quiz itself is not affected.</p>
+            {remove.error && <p className="mt-3 font-medium text-red-600">{remove.error.message}</p>}
+          </>
+        }
+        onConfirm={confirmDelete}
+        onCancel={() => {
+          setPendingDelete(undefined)
+          remove.clearError()
+        }}
+      />
     </>
   )
 }
