@@ -1,5 +1,6 @@
 package com.livequiz.backend.participant.service;
 
+import com.livequiz.backend.live.service.LiveMapper;
 import com.livequiz.backend.participant.domain.Participant;
 import com.livequiz.backend.participant.dto.JoinInfoResponse;
 import com.livequiz.backend.participant.dto.JoinRequest;
@@ -13,10 +14,23 @@ import org.springframework.stereotype.Component;
 @Component
 public class ParticipantMapper {
 
-    public Participant toNewParticipant(QuizSession session, JoinRequest request, QuizConfig config, String token) {
+    private final LiveMapper liveMapper;
+
+    public ParticipantMapper(LiveMapper liveMapper) {
+        this.liveMapper = liveMapper;
+    }
+
+    public Participant toNewParticipant(QuizSession session, JoinRequest request, QuizConfig config,
+                                        String token, long ordinal) {
         Participant participant = new Participant();
         participant.setSession(session);
         participant.setToken(token);
+
+        if (!config.isSaveParticipants()) {
+            participant.setDisplayLabel("Participant " + ordinal);
+            return participant;
+        }
+
         participant.setEmail(normalizeEmail(request.email()));
         participant.setName(collect(config.getNameRequirement(), request.name()));
         participant.setSurname(collect(config.getSurnameRequirement(), request.surname()));
@@ -30,6 +44,7 @@ public class ParticipantMapper {
                 participant.getId(),
                 participant.getToken(),
                 participant.getSession().getId(),
+                liveMapper.label(participant),
                 participant.getEmail(),
                 participant.getName(),
                 participant.getSurname(),
@@ -39,17 +54,22 @@ public class ParticipantMapper {
 
     public JoinInfoResponse toJoinInfo(QuizSession session) {
         QuizConfig config = session.getQuiz().getConfig();
-        ParticipantFieldsDto fields = new ParticipantFieldsDto(
-                FieldRequirement.REQUIRED,
-                config.getNameRequirement(),
-                config.getSurnameRequirement(),
-                config.getPersonalNumberRequirement(),
-                config.getFacultyRequirement());
-        return new JoinInfoResponse(session.getId(), session.getQuiz().getTitle(), session.getState(), fields);
+        boolean anonymous = !config.isSaveParticipants();
+        ParticipantFieldsDto fields = anonymous
+                ? new ParticipantFieldsDto(FieldRequirement.HIDDEN, FieldRequirement.HIDDEN,
+                        FieldRequirement.HIDDEN, FieldRequirement.HIDDEN, FieldRequirement.HIDDEN)
+                : new ParticipantFieldsDto(
+                        FieldRequirement.REQUIRED,
+                        config.getNameRequirement(),
+                        config.getSurnameRequirement(),
+                        config.getPersonalNumberRequirement(),
+                        config.getFacultyRequirement());
+        return new JoinInfoResponse(session.getId(), session.getQuiz().getTitle(), session.getState(),
+                anonymous, fields);
     }
 
     public static String normalizeEmail(String email) {
-        return email.trim().toLowerCase();
+        return email == null ? null : email.trim().toLowerCase();
     }
 
     private String collect(FieldRequirement requirement, String value) {

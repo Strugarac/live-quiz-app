@@ -13,6 +13,8 @@ public record SessionResponse(
         String quizTitle,
         QuizType quizType,
         boolean surveyMode,
+        boolean saveParticipants,
+        boolean saveStatistics,
         SessionState state,
         String joinToken,
         String joinUrl,
@@ -20,6 +22,7 @@ public record SessionResponse(
         List<UUID> askedQuestionIds,
         boolean questionOpen,
         int questionCount,
+        long participantCount,
         Instant createdAt,
         Instant startedAt,
         Instant endedAt

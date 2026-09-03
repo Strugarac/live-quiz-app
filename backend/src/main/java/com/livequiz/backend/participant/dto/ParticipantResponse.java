@@ -6,6 +6,7 @@ public record ParticipantResponse(
         UUID id,
         String token,
         UUID sessionId,
+        String label,
         String email,
         String name,
         String surname,

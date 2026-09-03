@@ -7,6 +7,7 @@ import { Badge, Card, EmptyState, ErrorBanner, Spinner } from '../../components/
 import { Button } from '../../components/ui/Button'
 import { ConfirmDialog } from '../../components/ui/Modal'
 import { formatDate } from '../quizzes/quizLabels'
+import { hasResults } from './sessionResults'
 
 const STATE_TONE: Record<SessionState, 'green' | 'brand' | 'slate'> = {
   ACTIVE: 'green',
@@ -89,12 +90,17 @@ export function SessionsListPage() {
                     <td className="px-5 py-3 text-slate-500">{formatDate(session.createdAt)}</td>
                     <td className="px-5 py-3 text-right whitespace-nowrap">
                       {session.state === 'ENDED' ? (
-                        <Link
-                          to={`/sessions/${session.id}/results`}
-                          className="font-semibold text-brand-700 hover:underline"
-                        >
-                          Results
-                        </Link>
+                        // Only where there is something to open: a quiz that keeps no
+                        // statistics deleted them at the end, and a cleared session has
+                        // nobody left in it.
+                        hasResults(session) && (
+                          <Link
+                            to={`/sessions/${session.id}/results`}
+                            className="font-semibold text-brand-700 hover:underline"
+                          >
+                            Results
+                          </Link>
+                        )
                       ) : (
                         <Link
                           to={`/sessions/${session.id}`}
@@ -136,10 +142,15 @@ export function SessionsListPage() {
               {pendingDelete && formatDate(pendingDelete.createdAt)}?
             </p>
             {pendingDelete?.state === 'ENDED' ? (
-              <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-amber-900 ring-1 ring-amber-200 ring-inset">
-                Its participants, answers and leaderboard go with it — export the CSV from the
-                results page first if you still need it.
-              </p>
+              // Nothing to warn about losing once the results are gone: the row is an
+              // empty shell, so pointing at a CSV export would send the professor to a
+              // page with nothing on it.
+              hasResults(pendingDelete) && (
+                <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-amber-900 ring-1 ring-amber-200 ring-inset">
+                  Its participants, answers and leaderboard go with it — export the CSV from the
+                  results page first if you still need it.
+                </p>
+              )
             ) : (
               <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-amber-900 ring-1 ring-amber-200 ring-inset">
                 Anyone already waiting in the lobby will be dropped, and the join code{' '}

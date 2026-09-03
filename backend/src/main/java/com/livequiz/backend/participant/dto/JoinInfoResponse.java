@@ -8,6 +8,7 @@ public record JoinInfoResponse(
         UUID sessionId,
         String quizTitle,
         SessionState state,
+        boolean anonymous,
         ParticipantFieldsDto fields
 ) {
 }

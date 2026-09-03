@@ -114,6 +114,10 @@ export interface SessionResponse {
   quizType: QuizType
   /** The quiz has no right answers: no scoring, no leaderboard. */
   surveyMode: boolean
+  /** Identities are not collected: participants join as guests and stay anonymous. */
+  saveParticipants: boolean
+  /** False means ending the session deletes its answers and participants. */
+  saveStatistics: boolean
   state: SessionState
   joinToken: string
   /** Full URL participants open; the backend builds it from app.join-base-url. */
@@ -130,6 +134,8 @@ export interface SessionResponse {
   askedQuestionIds: UUID[]
   questionOpen: boolean
   questionCount: number
+  /** Zero once the results have been cleared, which is what "no results" means. */
+  participantCount: number
   createdAt: string
   startedAt: string | null
   endedAt: string | null
@@ -143,7 +149,10 @@ export interface ParticipantResponse {
   id: UUID
   token: string
   sessionId: UUID
-  email: string
+  /** How this participant is named on screen; "Participant N" in an anonymous session. */
+  label: string
+  /** Null in an anonymous session, along with every other identity field. */
+  email: string | null
   name: string | null
   surname: string | null
   personalNumber: string | null
@@ -208,7 +217,10 @@ export interface SessionResultsResponse {
 // Public join flow — com.livequiz.backend.participant.dto
 // ---------------------------------------------------------------------------
 
-/** Which registration fields this session asks for. `email` is always REQUIRED. */
+/**
+ * Which registration fields this session asks for. `email` is REQUIRED unless the session
+ * is anonymous, where every field — email included — comes back HIDDEN.
+ */
 export interface ParticipantFieldsDto {
   email: FieldRequirement
   name: FieldRequirement
@@ -222,11 +234,14 @@ export interface JoinInfoResponse {
   quizTitle: string
   /** Joining is only allowed in LOBBY. */
   state: SessionState
+  /** The quiz keeps no identities: joining asks for nothing at all. */
+  anonymous: boolean
   fields: ParticipantFieldsDto
 }
 
 export interface JoinRequest {
-  email: string
+  /** Null only when the session is anonymous. */
+  email: string | null
   name: string | null
   surname: string | null
   personalNumber: string | null

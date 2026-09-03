@@ -47,9 +47,12 @@ export function SessionResultsPage() {
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <Button pending={exportCsv.pending} onClick={() => void exportCsv.run()}>
-            Export CSV
-          </Button>
+          {/* Nothing left to put in a file once the answers are gone. */}
+          {!cleared && (
+            <Button pending={exportCsv.pending} onClick={() => void exportCsv.run()}>
+              Export CSV
+            </Button>
+          )}
           {data.state === 'ENDED' && !cleared && (
             <Button variant="danger" onClick={() => setConfirmClear(true)}>
               Clear results
@@ -60,15 +63,16 @@ export function SessionResultsPage() {
 
       {!data.saveParticipants && (
         <div className="mb-4 rounded-lg bg-slate-100 px-4 py-3 text-sm text-slate-700">
-          This quiz was set to <strong>not keep participant identities</strong>, so names were wiped
-          when the session ended. Participants appear as anonymous labels below.
+          This quiz was set to <strong>not keep participant identities</strong>, so nothing
+          personal was collected — participants joined as guests and appear as anonymous labels
+          below.
         </div>
       )}
 
-      {!data.saveStatistics && !cleared && (
+      {!data.saveStatistics && (
         <div className="mb-4 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800 ring-1 ring-amber-200 ring-inset">
-          This quiz was set to <strong>not keep statistics</strong>. Nothing was deleted
-          automatically so you can still export it — use “Clear results” once you are done.
+          This quiz was set to <strong>not keep results and statistics</strong>, so its answers
+          and participants were deleted when the session ended. Only the questions are left.
         </div>
       )}
 

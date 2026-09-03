@@ -29,10 +29,9 @@ export interface LobbyEntry {
   label: string
 }
 
-/** Mirrors the backend's LiveMapper.label: full name when known, otherwise email. */
+/** The backend names participants (LiveMapper.label), so live events and REST agree. */
 function labelOf(participant: ParticipantResponse): string {
-  const full = [participant.name, participant.surname].filter(Boolean).join(' ').trim()
-  return full || participant.email
+  return participant.label
 }
 
 interface LiveState {
