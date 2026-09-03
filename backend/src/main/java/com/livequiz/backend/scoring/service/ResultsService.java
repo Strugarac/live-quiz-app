@@ -127,12 +127,15 @@ public class ResultsService {
 
     public void anonymizeParticipants(QuizSession session) {
         List<Participant> participants = participantRepository.findBySession_IdOrderByCreatedAtAsc(session.getId());
+        int n = 1;
         for (Participant p : participants) {
             p.setName(null);
             p.setSurname(null);
             p.setPersonalNumber(null);
             p.setFaculty(null);
-            p.setEmail("anon-" + p.getId());
+            p.setEmail(null);
+            p.setDisplayLabel("Participant " + n);
+            n++;
         }
         participantRepository.saveAll(participants);
     }
@@ -171,7 +174,10 @@ public class ResultsService {
         Map<UUID, String> labels = new LinkedHashMap<>();
         int n = 1;
         for (Participant p : participants) {
-            labels.put(p.getId(), config.isSaveParticipants() ? liveMapper.label(p) : "Participant " + n);
+            String anonymous = StringUtils.hasText(p.getDisplayLabel())
+                    ? p.getDisplayLabel()
+                    : "Participant " + n;
+            labels.put(p.getId(), config.isSaveParticipants() ? liveMapper.label(p) : anonymous);
             n++;
         }
         return labels;

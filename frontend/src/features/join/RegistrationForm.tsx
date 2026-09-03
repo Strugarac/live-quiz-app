@@ -26,12 +26,66 @@ interface RegistrationFormProps {
   onJoined: (participant: ParticipantResponse) => void
 }
 
+const EMPTY_JOIN: JoinRequest = {
+  email: null,
+  name: null,
+  surname: null,
+  personalNumber: null,
+  faculty: null,
+}
+
 /**
  * Only renders the fields this quiz asks for: HIDDEN fields are dropped entirely (the
  * backend nulls them anyway) and REQUIRED ones are enforced here as well as server-side.
- * Email is always required — it is the identity anchor for university accounts.
+ * Email is required wherever identities are kept — it is the identity anchor for
+ * university accounts — and asked for nowhere else.
  */
 export function RegistrationForm({ joinToken, info, onJoined }: RegistrationFormProps) {
+  if (info.anonymous) {
+    return <GuestJoin joinToken={joinToken} onJoined={onJoined} />
+  }
+  return <IdentifiedJoin joinToken={joinToken} info={info} onJoined={onJoined} />
+}
+
+/**
+ * The quiz keeps no identities, so there is nothing to ask: one tap and the student is in,
+ * known to the professor only as "Participant N".
+ */
+function GuestJoin({
+  joinToken,
+  onJoined,
+}: Omit<RegistrationFormProps, 'info'>) {
+  const join = useAction(() => joinApi.join(joinToken, EMPTY_JOIN))
+
+  const submit = async () => {
+    const result = await join.run()
+    if (result.ok) {
+      onJoined(result.value)
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      {join.error && <ErrorBanner error={join.error} />}
+
+      <div className="rounded-xl bg-slate-50 px-4 py-3 text-center text-sm text-slate-600 ring-1 ring-slate-200 ring-inset">
+        This quiz is <strong>anonymous</strong>. No email or name is asked for, and your
+        professor sees your answers under a number, not your name.
+      </div>
+
+      <Button
+        variant="primary"
+        pending={join.pending}
+        className="w-full py-3 text-base"
+        onClick={() => void submit()}
+      >
+        Join as guest
+      </Button>
+    </div>
+  )
+}
+
+function IdentifiedJoin({ joinToken, info, onJoined }: RegistrationFormProps) {
   const [values, setValues] = useState<Record<'email' | FieldKey, string>>({
     email: '',
     name: '',
@@ -53,13 +107,7 @@ export function RegistrationForm({ joinToken, info, onJoined }: RegistrationForm
     emailInvalid || visible.some((key) => missing(key, info.fields[key]))
 
   const join = useAction(() => {
-    const body: JoinRequest = {
-      email: values.email.trim(),
-      name: null,
-      surname: null,
-      personalNumber: null,
-      faculty: null,
-    }
+    const body: JoinRequest = { ...EMPTY_JOIN, email: values.email.trim() }
     for (const key of visible) {
       body[key] = values[key].trim() || null
     }

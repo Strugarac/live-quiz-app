@@ -28,8 +28,11 @@ public class Participant extends BaseEntity {
     @Column(nullable = false, unique = true, length = 64)
     private String token;
 
-    @Column(nullable = false, length = 255)
+    @Column(length = 255)
     private String email;
+
+    @Column(name = "display_label", length = 64)
+    private String displayLabel;
 
     @Column(length = 255)
     private String name;

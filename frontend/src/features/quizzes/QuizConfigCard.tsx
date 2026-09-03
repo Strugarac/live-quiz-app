@@ -29,15 +29,29 @@ export function QuizConfigCard({ config, onChange }: QuizConfigCardProps) {
 
         <h3 className="text-sm font-semibold text-slate-900">Participant registration</h3>
 
-        <div className="rounded-lg bg-slate-50 px-4 py-3 text-sm ring-1 ring-slate-200 ring-inset">
-          <p className="font-medium text-slate-700">Email — always required</p>
-          <p className="mt-0.5 text-xs text-slate-500">
-            Email is the identity anchor used to match students against university accounts, so it
-            cannot be turned off.
-          </p>
-        </div>
+        {/* Nothing in this section applies to an anonymous quiz, so say so instead of
+            leaving the professor configuring fields that are never asked for. */}
+        {config.saveParticipants ? (
+          <div className="rounded-lg bg-slate-50 px-4 py-3 text-sm ring-1 ring-slate-200 ring-inset">
+            <p className="font-medium text-slate-700">Email — always required</p>
+            <p className="mt-0.5 text-xs text-slate-500">
+              Email is the identity anchor used to match students against university accounts, so it
+              cannot be turned off.
+            </p>
+          </div>
+        ) : (
+          <div className="rounded-lg bg-amber-50 px-4 py-3 text-sm ring-1 ring-amber-200 ring-inset">
+            <p className="font-medium text-amber-900">Nothing is asked when joining</p>
+            <p className="mt-0.5 text-xs text-amber-800">
+              “Keep participant identities” is off below, so students join as guests with one tap.
+              The fields here are ignored until you turn it back on.
+            </p>
+          </div>
+        )}
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div
+          className={`grid gap-4 sm:grid-cols-2 ${config.saveParticipants ? '' : 'pointer-events-none opacity-50'}`}
+        >
           {CONFIGURABLE_FIELDS.map((field) => (
             <SelectField
               key={field.key}
@@ -55,13 +69,13 @@ export function QuizConfigCard({ config, onChange }: QuizConfigCardProps) {
           <h3 className="text-sm font-semibold text-slate-900">After the session ends</h3>
           <Checkbox
             label="Keep participant identities"
-            description="Off: names, student numbers and faculties are wiped the moment the session ends, and results show anonymous “Participant 1…N” labels instead."
+            description="Off: students join with one tap as guests — no email, no name, nothing personal is ever collected — and appear as “Participant 1…N” while the quiz runs and in the results. The registration fields above are not asked for at all."
             checked={config.saveParticipants}
             onChange={(saveParticipants) => onChange({ ...config, saveParticipants })}
           />
           <Checkbox
             label="Keep results and statistics"
-            description="Off: the round is meant to be discarded. Nothing is deleted automatically — you can still view and export the results, then clear them yourself."
+            description="Off: answers and participants are deleted the moment you end the session, and cannot be recovered. The end-session dialog warns you and offers the CSV export first. On: results stay until you clear them yourself from the results page."
             checked={config.saveStatistics}
             onChange={(saveStatistics) => onChange({ ...config, saveStatistics })}
           />

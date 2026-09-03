@@ -9,6 +9,7 @@ import com.livequiz.backend.live.service.LiveEventPublisher;
 import com.livequiz.backend.live.service.LiveMapper;
 import com.livequiz.backend.quiz.domain.Question;
 import com.livequiz.backend.quiz.domain.Quiz;
+import com.livequiz.backend.quiz.domain.QuizConfig;
 import com.livequiz.backend.quiz.repository.QuizRepository;
 import com.livequiz.backend.scoring.dto.LeaderboardPayload;
 import com.livequiz.backend.scoring.dto.SessionResultsResponse;
@@ -81,9 +82,7 @@ public class SessionService {
 
     @Transactional(readOnly = true)
     public List<SessionResponse> list() {
-        return sessionRepository.findByHostProfessorIdOrderByCreatedAtDesc(ownerId()).stream()
-                .map(mapper::toResponse)
-                .toList();
+        return mapper.toResponses(sessionRepository.findByHostProfessorIdOrderByCreatedAtDesc(ownerId()));
     }
 
     @Transactional(readOnly = true)
@@ -173,11 +172,15 @@ public class SessionService {
             closeCurrentQuestion(session);
         }
         session.end();
-        if (!session.getQuiz().getConfig().isSaveParticipants()) {
-            resultsService.anonymizeParticipants(session);
-        }
         publisher.toParticipants(session.getJoinToken(), LiveEventType.SESSION_ENDED, new SessionEndedPayload(
                 session.getId(), session.questionCount(), session.getEndedAt()));
+
+        QuizConfig config = session.getQuiz().getConfig();
+        if (!config.isSaveStatistics()) {
+            resultsService.discard(session);
+        } else if (!config.isSaveParticipants()) {
+            resultsService.anonymizeParticipants(session);
+        }
         return mapper.toResponse(session);
     }
 

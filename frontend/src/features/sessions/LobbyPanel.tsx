@@ -41,7 +41,11 @@ export function LobbyPanel({
       <Card className="overflow-hidden">
         <CardHeader
           title="Waiting for participants"
-          description="Students scan the code or open the link, then register."
+          description={
+            session.saveParticipants
+              ? 'Students scan the code or open the link, then register.'
+              : 'Students scan the code or open the link and join with one tap — nothing is asked of them.'
+          }
         />
         <div className="flex flex-col items-center gap-6 px-5 py-8 sm:flex-row sm:items-start sm:justify-center">
           <div className="rounded-xl bg-white p-4 ring-1 ring-slate-200 ring-inset">

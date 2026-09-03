@@ -66,9 +66,10 @@ export function JoinPage() {
                   joinToken={joinToken}
                   info={info.data}
                   onJoined={(participant) => {
-                    writeRegistration(joinToken, participant.token, participant.email)
+                    // The label, not the email: an anonymous session has no email to show.
+                    writeRegistration(joinToken, participant.token, participant.label)
                     setParticipantToken(participant.token)
-                    setLabel(participant.email)
+                    setLabel(participant.label)
                   }}
                 />
               ) : (

@@ -67,12 +67,16 @@ public class ParticipantService {
         QuizConfig config = session.getQuiz().getConfig();
         validator.validate(config, request);
 
-        String email = ParticipantMapper.normalizeEmail(request.email());
-        if (participantRepository.existsBySession_IdAndEmail(session.getId(), email)) {
-            throw new ConflictException("This email has already joined the session");
+        if (config.isSaveParticipants()) {
+            String email = ParticipantMapper.normalizeEmail(request.email());
+            if (participantRepository.existsBySession_IdAndEmail(session.getId(), email)) {
+                throw new ConflictException("This email has already joined the session");
+            }
         }
 
-        Participant participant = mapper.toNewParticipant(session, request, config, tokenGenerator.generateUnique());
+        long ordinal = participantRepository.countBySession_Id(session.getId()) + 1;
+        Participant participant = mapper.toNewParticipant(session, request, config,
+                tokenGenerator.generateUnique(), ordinal);
         participantRepository.saveAndFlush(participant);
         announceJoin(session, participant);
         return mapper.toResponse(participant);

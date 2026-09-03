@@ -69,9 +69,15 @@ public class LiveMapper {
     }
 
     public String label(Participant participant) {
+        if (StringUtils.hasText(participant.getDisplayLabel())) {
+            return participant.getDisplayLabel();
+        }
         String fullName = ("%s %s".formatted(
                 participant.getName() == null ? "" : participant.getName(),
                 participant.getSurname() == null ? "" : participant.getSurname())).trim();
-        return StringUtils.hasText(fullName) ? fullName : participant.getEmail();
+        if (StringUtils.hasText(fullName)) {
+            return fullName;
+        }
+        return StringUtils.hasText(participant.getEmail()) ? participant.getEmail() : "Participant";
     }
 }

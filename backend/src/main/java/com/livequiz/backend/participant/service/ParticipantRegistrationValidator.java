@@ -10,6 +10,12 @@ import org.springframework.stereotype.Component;
 public class ParticipantRegistrationValidator {
 
     public void validate(QuizConfig config, JoinRequest request) {
+        if (!config.isSaveParticipants()) {
+            return;
+        }
+        if (isBlank(request.email())) {
+            throw new BadRequestException("email is required for this quiz");
+        }
         require(config.getNameRequirement(), request.name(), "name");
         require(config.getSurnameRequirement(), request.surname(), "surname");
         require(config.getPersonalNumberRequirement(), request.personalNumber(), "personalNumber");
