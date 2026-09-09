@@ -13,9 +13,10 @@ import { AuthContext, useAuth, type AuthState, type Professor } from './authCont
  * routes wrapped in `RequireAuth` should not need to change.
  */
 
+/** Must match the seeded professor row, which V12__admin_user_identity.sql names. */
 const STUB_PROFESSOR: Professor = {
-  displayName: 'Test Professor',
-  email: 'professor@test.local',
+  displayName: 'Admin User',
+  email: 'adminuser@gmail.com',
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {

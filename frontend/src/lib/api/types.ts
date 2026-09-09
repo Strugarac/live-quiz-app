@@ -185,6 +185,21 @@ export interface FreeTextEntry {
   text: string
 }
 
+/**
+ * One participant's answer to one question. The label is anonymity-aware exactly like
+ * the leaderboard's — an anonymous session sends "Participant N" and no identity at all.
+ * `correct` is null when nothing was graded (survey mode, or a free-text question).
+ */
+export interface ParticipantAnswerEntry {
+  participantId: UUID
+  participantLabel: string
+  selectedOptionIds: UUID[]
+  freeText: string | null
+  correct: boolean | null
+  points: number
+  responseTimeMs: number | null
+}
+
 export interface QuestionBreakdown {
   questionId: UUID
   questionIndex: number
@@ -196,6 +211,8 @@ export interface QuestionBreakdown {
   incorrectCount: number
   options: OptionBreakdown[]
   freeTextResponses: FreeTextEntry[]
+  /** Who answered what, in join order. Empty once the results have been discarded. */
+  participantAnswers: ParticipantAnswerEntry[]
 }
 
 export interface SessionResultsResponse {
@@ -204,7 +221,13 @@ export interface SessionResultsResponse {
   state: SessionState
   endedAt: string | null
   participantCount: number
+  /**
+   * How many questions these results cover. A flexible session reports only the questions
+   * it actually asked, and `questions` below holds those in the order they were asked.
+   */
   questionCount: number
+  /** How many the quiz holds in total; larger than `questionCount` when some were never asked. */
+  quizQuestionCount: number
   /** No right answers were scored: leaderboard is empty and correct counts are all 0. */
   surveyMode: boolean
   saveStatistics: boolean

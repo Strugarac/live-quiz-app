@@ -13,6 +13,7 @@ public record SessionResultsResponse(
         Instant endedAt,
         int participantCount,
         int questionCount,
+        int quizQuestionCount,
         boolean surveyMode,
         boolean saveStatistics,
         boolean saveParticipants,

@@ -12,6 +12,7 @@ import com.livequiz.backend.quiz.domain.QuizConfig;
 import com.livequiz.backend.scoring.dto.FreeTextEntry;
 import com.livequiz.backend.scoring.dto.LeaderboardRow;
 import com.livequiz.backend.scoring.dto.OptionBreakdown;
+import com.livequiz.backend.scoring.dto.ParticipantAnswerEntry;
 import com.livequiz.backend.scoring.dto.QuestionBreakdown;
 import com.livequiz.backend.scoring.dto.SessionResultsResponse;
 import com.livequiz.backend.session.domain.QuizSession;
@@ -21,10 +22,12 @@ import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -52,13 +55,14 @@ public class ResultsService {
         QuizConfig config = session.getQuiz().getConfig();
         List<Participant> participants = participantRepository.findBySession_IdOrderByCreatedAtAsc(session.getId());
         Map<UUID, String> labels = labels(config, participants);
+        Map<UUID, Integer> joinOrder = joinOrder(labels);
 
         Map<UUID, List<ParticipantAnswer>> byQuestion =
                 answerRepository.findBySession_IdOrderByQuestionIndexAsc(session.getId()).stream()
                         .collect(Collectors.groupingBy(a -> a.getQuestion().getId()));
 
-        List<QuestionBreakdown> questions = session.getQuiz().getQuestions().stream()
-                .map(q -> breakdown(q, byQuestion.getOrDefault(q.getId(), List.of()), labels))
+        List<QuestionBreakdown> questions = askedQuestions(session).stream()
+                .map(q -> breakdown(q, byQuestion.getOrDefault(q.getId(), List.of()), labels, joinOrder))
                 .toList();
 
         List<LeaderboardRow> leaderboard = relabel(scoringService.leaderboard(session).rows(), labels);
@@ -69,12 +73,26 @@ public class ResultsService {
                 session.getState(),
                 session.getEndedAt(),
                 participants.size(),
+                questions.size(),
                 session.questionCount(),
                 config.isSurveyMode(),
                 config.isSaveStatistics(),
                 config.isSaveParticipants(),
                 leaderboard,
                 questions);
+    }
+
+    private List<Question> askedQuestions(QuizSession session) {
+        List<Question> questions = session.getQuiz().getQuestions();
+        if (!session.isFlexible()) {
+            return questions;
+        }
+        Map<UUID, Question> byId = questions.stream()
+                .collect(Collectors.toMap(Question::getId, q -> q));
+        return session.getAskedQuestionIds().stream()
+                .map(byId::get)
+                .filter(Objects::nonNull)
+                .toList();
     }
 
     @Transactional(readOnly = true)
@@ -145,7 +163,8 @@ public class ResultsService {
         participantRepository.deleteBySession_Id(session.getId());
     }
 
-    private QuestionBreakdown breakdown(Question question, List<ParticipantAnswer> answers, Map<UUID, String> labels) {
+    private QuestionBreakdown breakdown(Question question, List<ParticipantAnswer> answers,
+                                        Map<UUID, String> labels, Map<UUID, Integer> joinOrder) {
         long correct = answers.stream().filter(a -> Boolean.TRUE.equals(a.getCorrect())).count();
         long incorrect = answers.stream().filter(a -> Boolean.FALSE.equals(a.getCorrect())).count();
 
@@ -165,9 +184,22 @@ public class ResultsService {
                         .map(a -> new FreeTextEntry(labels.get(a.getParticipant().getId()), a.getFreeText()))
                         .toList();
 
+        List<ParticipantAnswerEntry> participantAnswers = answers.stream()
+                .sorted(Comparator.comparingInt(
+                        a -> joinOrder.getOrDefault(a.getParticipant().getId(), Integer.MAX_VALUE)))
+                .map(a -> new ParticipantAnswerEntry(
+                        a.getParticipant().getId(),
+                        labels.get(a.getParticipant().getId()),
+                        List.copyOf(a.getSelectedOptionIds()),
+                        a.getFreeText(),
+                        a.getCorrect(),
+                        a.getPoints(),
+                        a.getResponseTimeMs()))
+                .toList();
+
         return new QuestionBreakdown(
                 question.getId(), question.getOrderIndex(), question.getText(), question.getType(),
-                answers.size(), correct, incorrect, options, freeText);
+                answers.size(), correct, incorrect, options, freeText, participantAnswers);
     }
 
     private Map<UUID, String> labels(QuizConfig config, List<Participant> participants) {
@@ -181,6 +213,15 @@ public class ResultsService {
             n++;
         }
         return labels;
+    }
+
+    private Map<UUID, Integer> joinOrder(Map<UUID, String> labels) {
+        Map<UUID, Integer> order = new HashMap<>();
+        int n = 0;
+        for (UUID participantId : labels.keySet()) {
+            order.put(participantId, n++);
+        }
+        return order;
     }
 
     private List<LeaderboardRow> relabel(List<LeaderboardRow> rows, Map<UUID, String> labels) {

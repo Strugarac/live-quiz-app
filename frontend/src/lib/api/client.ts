@@ -44,6 +44,25 @@ interface RequestOptions {
   signal?: AbortSignal
 }
 
+/**
+ * What to show when the backend sent no message of its own — a proxy failure, an HTML
+ * error page, a filter rejecting the request before it reached a controller. The status
+ * code stays on the ApiError for callers that branch on it; it is not something to put in
+ * front of a professor mid-lecture.
+ */
+function fallbackMessage(status: number): string {
+  if (status === 404) {
+    return 'That is no longer there. Try going back and reloading the page.'
+  }
+  if (status === 401 || status === 403) {
+    return 'You are not allowed to do that.'
+  }
+  if (status >= 500) {
+    return 'The server had a problem. Please try again.'
+  }
+  return 'Something went wrong. Please try again.'
+}
+
 async function toApiError(response: Response): Promise<ApiError> {
   let body: ApiErrorBody | null = null
   try {
@@ -53,7 +72,7 @@ async function toApiError(response: Response): Promise<ApiError> {
   }
   return new ApiError(
     response.status,
-    body?.message ?? `Request failed with status ${response.status}`,
+    body?.message ?? fallbackMessage(response.status),
     body?.fieldErrors ?? [],
   )
 }

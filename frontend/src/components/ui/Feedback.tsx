@@ -20,10 +20,9 @@ export function Spinner({ label = 'Loading…' }: { label?: string }) {
 export function ErrorBanner({ error, onRetry }: { error: ApiError; onRetry?: () => void }) {
   return (
     <div role="alert" className="rounded-lg bg-red-50 p-4 ring-1 ring-red-200 ring-inset">
-      <p className="text-sm font-semibold text-red-800">
-        {error.status > 0 ? `${error.status} — ` : ''}
-        {error.message}
-      </p>
+      {/* Status codes stay on the ApiError for callers that branch on them; nobody reading
+          this banner needs to see a number. */}
+      <p className="text-sm font-semibold text-red-800">{error.message}</p>
       {error.fieldErrors.length > 0 && (
         <ul className="mt-2 list-inside list-disc space-y-0.5 text-sm text-red-700">
           {error.fieldErrors.map((fe) => (
@@ -84,6 +83,23 @@ export function Badge({
     >
       {children}
     </span>
+  )
+}
+
+/**
+ * The affordance on every expandable header: points down when the panel is open.
+ * Decorative — the header's own `aria-expanded` is what actually announces the state.
+ */
+export function ChevronIcon({ open }: { open: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      fill="currentColor"
+      aria-hidden="true"
+      className={`size-4 shrink-0 text-slate-400 transition-transform ${open ? 'rotate-90' : ''}`}
+    >
+      <path d="M6 3.5 10.5 8 6 12.5 4.9 11.4 8.3 8 4.9 4.6 6 3.5Z" />
+    </svg>
   )
 }
 
