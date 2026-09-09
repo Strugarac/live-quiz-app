@@ -1,13 +1,13 @@
 import { useCallback, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { sessionApi } from '../../lib/api/sessions'
-import type { QuestionBreakdown } from '../../lib/api/types'
 import { useAction, useAsync } from '../../lib/useAsync'
 import { Button } from '../../components/ui/Button'
-import { Badge, Card, CardHeader, ErrorBanner, Spinner } from '../../components/ui/Feedback'
+import { ErrorBanner, Spinner } from '../../components/ui/Feedback'
 import { ConfirmDialog } from '../../components/ui/Modal'
-import { QUESTION_TYPE_LABELS } from '../quizzes/quizLabels'
 import { LeaderboardPanel } from './LeaderboardPanel'
+import { QuestionBreakdownList } from './QuestionBreakdownList'
+import { ResultsOverview } from './ResultsCharts'
 
 export function SessionResultsPage() {
   const { sessionId = '' } = useParams()
@@ -41,7 +41,12 @@ export function SessionResultsPage() {
           </Link>
           <h1 className="mt-2 text-2xl font-bold text-slate-900">{data.quizTitle}</h1>
           <p className="mt-1 text-sm text-slate-500">
-            {data.participantCount} participants · {data.questionCount} questions
+            {data.participantCount} participants ·{' '}
+            {/* A flexible session asks a subset, so say so rather than let the count look
+                like the quiz shrank. */}
+            {data.quizQuestionCount > data.questionCount
+              ? `${data.questionCount} of ${data.quizQuestionCount} questions asked`
+              : `${data.questionCount} questions`}
             {data.endedAt && ` · ended ${new Date(data.endedAt).toLocaleString()}`}
           </p>
         </div>
@@ -89,30 +94,27 @@ export function SessionResultsPage() {
         </div>
       )}
 
-      {/* A survey has no standings, so the breakdowns take the full width instead of
-          leaving a column of empty leaderboard next to them. */}
-      <div
-        className={
-          data.surveyMode ? 'space-y-4' : 'grid gap-6 lg:grid-cols-[20rem_minmax(0,1fr)]'
-        }
-      >
+      {/* Cleared results have nothing left to plot — the questions survive, the answers
+          behind every one of these numbers do not. */}
+      {!cleared && <ResultsOverview data={data} />}
+
+      {/* Both panels stay closed until asked for: the charts above already answer the
+          questions most people open this page with. A survey has no standings at all. */}
+      <div className="space-y-4">
         {!data.surveyMode && (
           <LeaderboardPanel
             rows={data.leaderboard}
             title="Final standings"
             emptyHint="No scores were recorded for this session."
+            collapsible
           />
         )}
 
-        <div className="space-y-4">
-          {data.questions.map((question) => (
-            <QuestionBreakdownCard
-              key={question.questionId}
-              question={question}
-              surveyMode={data.surveyMode}
-            />
-          ))}
-        </div>
+        <QuestionBreakdownList
+          questions={data.questions}
+          surveyMode={data.surveyMode}
+          saveParticipants={data.saveParticipants}
+        />
       </div>
 
       <ConfirmDialog
@@ -143,91 +145,5 @@ export function SessionResultsPage() {
         }}
       />
     </>
-  )
-}
-
-function QuestionBreakdownCard({
-  question,
-  surveyMode,
-}: {
-  question: QuestionBreakdown
-  surveyMode: boolean
-}) {
-  const maxChosen = Math.max(1, ...question.options.map((option) => option.chosenCount))
-
-  return (
-    <Card className="overflow-hidden">
-      <CardHeader
-        title={`${question.questionIndex + 1}. ${question.text ?? '(image only)'}`}
-        description={`${QUESTION_TYPE_LABELS[question.type]} · ${question.answerCount} answers`}
-        action={
-          // Nothing was graded in a survey, so correct/wrong counts are both zero and
-          // printing them would read as "everyone got it wrong".
-          surveyMode ? (
-            <Badge tone="slate">No right answer</Badge>
-          ) : question.type === 'FREE_TEXT' ? (
-            <Badge tone="amber">Not graded</Badge>
-          ) : (
-            <div className="flex gap-1.5">
-              <Badge tone="green">{question.correctCount} correct</Badge>
-              <Badge tone="slate">{question.incorrectCount} wrong</Badge>
-            </div>
-          )
-        }
-      />
-
-      <div className="px-5 py-4">
-        {question.type === 'FREE_TEXT' ? (
-          question.freeTextResponses.length === 0 ? (
-            <p className="text-sm text-slate-500">No written answers were submitted.</p>
-          ) : (
-            <ul className="space-y-2">
-              {question.freeTextResponses.map((entry, index) => (
-                <li
-                  key={`${entry.participantLabel}-${index}`}
-                  className="rounded-lg bg-slate-50 px-3 py-2 text-sm"
-                >
-                  <span className="font-semibold text-slate-700">{entry.participantLabel}:</span>{' '}
-                  <span className="text-slate-600">{entry.text}</span>
-                </li>
-              ))}
-            </ul>
-          )
-        ) : (
-          <ul className="space-y-2">
-            {question.options.map((option) => {
-              const showCorrect = option.correct && !surveyMode
-              return (
-                <li
-                  key={option.optionId}
-                  className={`relative overflow-hidden rounded-lg px-3 py-2 ring-1 ring-inset ${
-                    showCorrect ? 'bg-emerald-50 ring-emerald-200' : 'bg-white ring-slate-200'
-                  }`}
-                >
-                  <span
-                    aria-hidden="true"
-                    className={`absolute inset-y-0 left-0 ${
-                      showCorrect ? 'bg-emerald-100' : 'bg-slate-100'
-                    }`}
-                    style={{ width: `${(option.chosenCount / maxChosen) * 100}%` }}
-                  />
-                  <div className="relative flex items-center justify-between gap-4 text-sm">
-                    <span
-                      className={showCorrect ? 'font-semibold text-emerald-900' : 'text-slate-700'}
-                    >
-                      {showCorrect && <span aria-label="Correct answer">✓ </span>}
-                      {option.text ?? '(image)'}
-                    </span>
-                    <span className="shrink-0 text-xs font-semibold text-slate-500">
-                      {option.chosenCount}
-                    </span>
-                  </div>
-                </li>
-              )
-            })}
-          </ul>
-        )}
-      </div>
-    </Card>
   )
 }

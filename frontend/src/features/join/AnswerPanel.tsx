@@ -87,6 +87,8 @@ export function AnswerPanel({
             const isSelected = selected.includes(option.id)
             const isCorrect = revealed?.correctOptionIds.includes(option.id)
             const wasPicked = ownSelection.includes(option.id)
+            // A graded reveal has already said this option is not the answer.
+            const revealedWrong = gradedReveal && !isCorrect
 
             return (
               <li key={option.id}>
@@ -94,19 +96,27 @@ export function AnswerPanel({
                   type="button"
                   disabled={locked}
                   onClick={() => toggle(option.id)}
-                  className={`flex w-full items-center gap-3 rounded-xl px-4 py-4 text-left text-base font-semibold text-white transition-all disabled:cursor-not-allowed ${
+                  // Every branch sets its own text colour. Listing `text-white` on the base
+                  // and overriding it per branch left two text utilities on one element,
+                  // where the winner is decided by stylesheet order rather than by this
+                  // ternary — which is how "your pick" ended up white on grey.
+                  className={`flex w-full items-center gap-3 rounded-xl px-4 py-4 text-left text-base font-semibold transition-all disabled:cursor-not-allowed ${
                     gradedReveal
                       ? isCorrect
-                        ? 'bg-emerald-600'
-                        : 'bg-slate-300 text-slate-600'
-                      : `${optionColor(index).base} ${optionColor(index).hover}`
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-slate-200 text-slate-700'
+                      : `text-white ${optionColor(index).base} ${optionColor(index).hover}`
                   } ${isSelected && !revealed ? 'ring-4 ring-slate-900/20' : ''} ${
                     // A survey keeps every option in its own colour at reveal — greying them
                     // all out would read as "everyone got it wrong". Only the pick stands out.
                     surveyReveal && !wasPicked ? 'opacity-50' : ''
                   } ${locked && !revealed ? 'opacity-60' : ''}`}
                 >
-                  <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-white/25 text-sm">
+                  <span
+                    className={`grid size-7 shrink-0 place-items-center rounded-lg text-sm ${
+                      revealedWrong ? 'bg-slate-900/10' : 'bg-white/25'
+                    }`}
+                  >
                     {gradedReveal && isCorrect ? '✓' : optionLetter(index)}
                   </span>
                   <span className="min-w-0 flex-1">
@@ -120,7 +130,17 @@ export function AnswerPanel({
                     )}
                   </span>
                   {revealed && wasPicked && (
-                    <span className="shrink-0 text-xs font-bold uppercase">your pick</span>
+                    // Red on the option they got wrong, so the verdict lands before they
+                    // have finished reading. Elsewhere it rides the option's own colour.
+                    <span
+                      className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-bold uppercase ${
+                        revealedWrong
+                          ? 'bg-red-100 text-red-700 ring-1 ring-red-300 ring-inset'
+                          : 'bg-white/25 text-white'
+                      }`}
+                    >
+                      your pick
+                    </span>
                   )}
                 </button>
               </li>

@@ -14,6 +14,7 @@ public record QuestionBreakdown(
         long correctCount,
         long incorrectCount,
         List<OptionBreakdown> options,
-        List<FreeTextEntry> freeTextResponses
+        List<FreeTextEntry> freeTextResponses,
+        List<ParticipantAnswerEntry> participantAnswers
 ) {
 }

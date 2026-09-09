@@ -4,10 +4,12 @@ import { quizApi } from '../../lib/api/quizzes'
 import { sessionApi } from '../../lib/api/sessions'
 import type { QuestionResponse, QuizConfigDto, QuizResponse, QuizType } from '../../lib/api/types'
 import { useAction, useAsync } from '../../lib/useAsync'
+import { useToast } from '../../lib/useToast'
 import { Button } from '../../components/ui/Button'
 import { SelectField, TextArea, TextField } from '../../components/ui/Field'
 import { Badge, Card, CardHeader, EmptyState, ErrorBanner, Spinner } from '../../components/ui/Feedback'
 import { ConfirmDialog } from '../../components/ui/Modal'
+import { Toast } from '../../components/ui/Toast'
 import { QuestionForm } from './QuestionForm'
 import { QuizConfigCard } from './QuizConfigCard'
 import { QUESTION_TYPE_LABELS, QUIZ_TYPE_OPTIONS } from './quizLabels'
@@ -39,6 +41,8 @@ function QuizEditor({
   onQuizChange: (quiz: QuizResponse) => void
 }) {
   const navigate = useNavigate()
+  const toast = useToast()
+  const details = useQuizDetailsForm(quiz, onQuizChange, toast.show)
   const startSession = useAction(() => sessionApi.create({ quizId: quiz.id }))
 
   const hostSession = async () => {
@@ -47,6 +51,15 @@ function QuizEditor({
       navigate(`/sessions/${result.value.id}`)
     }
   }
+
+  // A session runs against what the server has, so hosting on top of unsaved edits would
+  // quietly run the old settings — the professor would be looking at survey mode on screen
+  // and grading answers underneath.
+  const startBlockedBy = details.dirty
+    ? 'Save or discard your changes first'
+    : quiz.questions.length === 0
+      ? 'Add a question first'
+      : undefined
 
   return (
     <>
@@ -57,14 +70,26 @@ function QuizEditor({
           </Link>
           <h1 className="mt-2 text-2xl font-bold text-slate-900">{quiz.title}</h1>
         </div>
-        <Button
-          variant="primary"
-          pending={startSession.pending}
-          disabled={quiz.questions.length === 0}
-          onClick={hostSession}
-        >
-          Start live session
-        </Button>
+        <div className="text-right">
+          <Button
+            variant="primary"
+            pending={startSession.pending}
+            disabled={Boolean(startBlockedBy)}
+            onClick={hostSession}
+          >
+            Start live session
+          </Button>
+          {/* A disabled button with nothing saying why is the thing being fixed here. */}
+          {startBlockedBy && (
+            <p
+              className={`mt-1.5 text-xs font-medium ${
+                details.dirty ? 'text-amber-700' : 'text-slate-500'
+              }`}
+            >
+              {startBlockedBy}
+            </p>
+          )}
+        </div>
       </div>
 
       {startSession.error && (
@@ -83,9 +108,11 @@ function QuizEditor({
       )}
 
       <div className="space-y-6">
-        <DetailsSection quiz={quiz} onSaved={onQuizChange} />
+        <DetailsSection form={details} />
         <QuestionsSection quiz={quiz} onQuizChange={onQuizChange} />
       </div>
+
+      <Toast message={toast.message} />
     </>
   )
 }
@@ -93,19 +120,19 @@ function QuizEditor({
 /**
  * Title / description / type / config are one PUT. Questions are deliberately not
  * part of it — the backend's update endpoint ignores them.
+ *
+ * The form state lives up here rather than inside the section that renders it, because
+ * "there are unsaved changes" also governs the Start button at the top of the page.
  */
-function DetailsSection({
-  quiz,
-  onSaved,
-}: {
-  quiz: QuizResponse
-  onSaved: (quiz: QuizResponse) => void
-}) {
+function useQuizDetailsForm(
+  quiz: QuizResponse,
+  onSaved: (quiz: QuizResponse) => void,
+  onToast: (text: string) => void,
+) {
   const [title, setTitle] = useState(quiz.title)
   const [description, setDescription] = useState(quiz.description ?? '')
   const [type, setType] = useState<QuizType>(quiz.type)
   const [config, setConfig] = useState<QuizConfigDto>(quiz.config)
-  const [savedOnce, setSavedOnce] = useState(false)
 
   const save = useAction(() =>
     quizApi.update(quiz.id, {
@@ -122,18 +149,48 @@ function DetailsSection({
     type !== quiz.type ||
     JSON.stringify(config) !== JSON.stringify(quiz.config)
 
-  // Derived rather than stored, so editing anything hides it again on its own.
-  const showSaved = savedOnce && !dirty
+  /** Adopt whatever the server holds — what both saving and discarding end at. */
+  const reset = (source: QuizResponse) => {
+    setTitle(source.title)
+    setDescription(source.description ?? '')
+    setType(source.type)
+    setConfig(source.config)
+    save.clearError()
+  }
 
   const submit = async () => {
     const result = await save.run()
     if (result.ok) {
       // Preserve the questions the PUT response already carries.
       onSaved(result.value)
-      setSavedOnce(true)
+      // Re-seed from the response, not from what was typed: the PUT trims, so a title left
+      // with a trailing space would otherwise stay "dirty" forever against the saved value.
+      reset(result.value)
+      onToast('Quiz settings saved')
     }
   }
 
+  const discard = () => reset(quiz)
+
+  return {
+    title,
+    setTitle,
+    description,
+    setDescription,
+    type,
+    setType,
+    config,
+    setConfig,
+    dirty,
+    save,
+    submit,
+    discard,
+  }
+}
+
+type QuizDetailsForm = ReturnType<typeof useQuizDetailsForm>
+
+function DetailsSection({ form }: { form: QuizDetailsForm }) {
   return (
     <>
       <Card>
@@ -141,38 +198,47 @@ function DetailsSection({
         <div className="space-y-4 px-5 py-4">
           <TextField
             label="Title"
-            value={title}
+            value={form.title}
             maxLength={255}
-            error={save.error?.fieldError('title')}
-            onChange={(event) => setTitle(event.target.value)}
+            error={form.save.error?.fieldError('title')}
+            onChange={(event) => form.setTitle(event.target.value)}
           />
           <TextArea
             label="Description"
-            value={description}
+            value={form.description}
             maxLength={2000}
-            onChange={(event) => setDescription(event.target.value)}
+            onChange={(event) => form.setDescription(event.target.value)}
           />
           <SelectField
             label="Type"
-            value={type}
+            value={form.type}
             options={QUIZ_TYPE_OPTIONS}
             hint="Flexible lets you choose each question during the session and add new ones as you go. Cannot be changed while a session is running."
-            onChange={(event) => setType(event.target.value as QuizType)}
+            onChange={(event) => form.setType(event.target.value as QuizType)}
           />
         </div>
       </Card>
 
-      <QuizConfigCard config={config} onChange={setConfig} />
+      <QuizConfigCard config={form.config} onChange={form.setConfig} />
 
-      {save.error && <ErrorBanner error={save.error} />}
+      {form.save.error && <ErrorBanner error={form.save.error} />}
 
-      <div className="flex items-center justify-end gap-3">
-        {showSaved && <span className="text-sm font-medium text-emerald-600">Saved</span>}
-        {dirty && <span className="text-sm text-slate-500">Unsaved changes</span>}
-        <Button variant="primary" pending={save.pending} disabled={!dirty} onClick={submit}>
-          Save changes
-        </Button>
-      </div>
+      {/* Sticky, not parked at the bottom of the form: the setting that made this appear is
+          often several screens above the button that resolves it. It exists only while there
+          is something to resolve, so its presence is itself the warning. */}
+      {form.dirty && (
+        <div className="sticky bottom-4 z-30 flex flex-wrap items-center gap-3 rounded-xl bg-white px-4 py-3 shadow-lg ring-1 ring-amber-300 ring-inset">
+          <span className="mr-auto text-sm font-medium text-amber-700">
+            You have unsaved changes
+          </span>
+          <Button variant="ghost" disabled={form.save.pending} onClick={form.discard}>
+            Discard
+          </Button>
+          <Button variant="primary" pending={form.save.pending} onClick={form.submit}>
+            Save changes
+          </Button>
+        </div>
+      )}
     </>
   )
 }
