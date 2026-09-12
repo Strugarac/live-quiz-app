@@ -127,7 +127,7 @@ export function SubmittedPanel({
           <div className="rounded-2xl bg-white p-4 ring-1 ring-slate-200 ring-inset">
             <div className="flex items-baseline justify-between gap-3">
               <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                Answered
+                Answers received
               </h2>
               <p className="text-sm font-semibold text-slate-700">
                 {answerCount} of {participantCount}
@@ -138,7 +138,7 @@ export function SubmittedPanel({
               aria-valuenow={answerCount}
               aria-valuemin={0}
               aria-valuemax={participantCount}
-              aria-label="Participants who have answered"
+              aria-label={`${answerCount} of ${participantCount} people have answered this question`}
               className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100"
             >
               <div
@@ -146,6 +146,16 @@ export function SubmittedPanel({
                 style={{ width: `${Math.min(100, (answerCount / participantCount) * 100)}%` }}
               />
             </div>
+            {/* Without this the bar reads like a score or a timer. It says what is
+                being counted, and — just as important — what it does not reveal. */}
+            <p className="mt-2 text-xs text-slate-500">
+              {answerCount === participantCount
+                ? 'Everyone has answered. Waiting for the host to close the question.'
+                : `${participantCount - answerCount} ${
+                    participantCount - answerCount === 1 ? 'person has' : 'people have'
+                  } not answered yet.`}{' '}
+              This only counts how many have sent an answer — never which answer they picked.
+            </p>
           </div>
         )}
 
