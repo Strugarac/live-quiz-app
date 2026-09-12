@@ -15,6 +15,12 @@ import java.util.List;
 @EnableWebSecurity
 public class SecurityConfig {
 
+    private final WebSocketProperties webSocketProperties;
+
+    public SecurityConfig(WebSocketProperties webSocketProperties) {
+        this.webSocketProperties = webSocketProperties;
+    }
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
@@ -28,7 +34,11 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of("http://localhost:5173", "http://localhost:3000"));
+        // Same list (and same wildcard patterns) as the STOMP handshake in WebSocketConfig, so a
+        // browser origin that may open the socket may also call the REST API. Needed even behind
+        // the Vite proxy: changeOrigin rewrites Host to localhost:8080 while Origin stays the LAN
+        // address the phone typed, so Spring treats every proxied POST as a cross-origin request.
+        config.setAllowedOriginPatterns(webSocketProperties.allowedOrigins());
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);
