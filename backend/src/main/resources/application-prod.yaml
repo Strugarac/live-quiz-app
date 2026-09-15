@@ -9,3 +9,8 @@ spring:
       port: ${REDIS_PORT:6379}
   jpa:
     show-sql: false
+
+app:
+  websocket:
+    # Zamenjuje localhost/LAN listu iz application.yaml; vise adresa razdvojiti zarezom.
+    allowed-origins: ${WS_ALLOWED_ORIGINS}

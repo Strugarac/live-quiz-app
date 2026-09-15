@@ -1,0 +1,72 @@
+# Produkciona postavka - ovaj fajl (+ .env) je sve sto treba na serveru.
+#   docker compose -f docker-compose.prod.yml pull
+#   docker compose -f docker-compose.prod.yml up -d
+#   docker compose -f docker-compose.prod.yml logs -f backend
+# Ka spolja je otvoren samo frontend/nginx, na portu HTTP_PORT iz .env (podrazumevano 80);
+# ostali servisi se vide samo unutar Docker mreze, po imenima servisa.
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: livequiz
+      POSTGRES_USER: livequiz
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U livequiz -d livequiz" ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7
+    restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: livequiz
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+    command: >
+      bash -c "rabbitmq-plugins enable --offline rabbitmq_stomp && rabbitmq-server"
+    healthcheck:
+      test: [ "CMD", "rabbitmq-diagnostics", "-q", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    image: ${DOCKERHUB_USER}/livequiz-backend:${APP_VERSION:-latest}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      DB_URL: jdbc:postgresql://postgres:5432/livequiz
+      DB_USERNAME: livequiz
+      DB_PASSWORD: ${DB_PASSWORD}
+      REDIS_HOST: redis
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+      JOIN_BASE_URL: ${PUBLIC_URL}/join
+      MEDIA_PUBLIC_BASE_URL: ${PUBLIC_URL}
+      WS_ALLOWED_ORIGINS: ${PUBLIC_URL}
+
+  frontend:
+    image: ${DOCKERHUB_USER}/livequiz-frontend:${APP_VERSION:-latest}
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "${HTTP_PORT:-80}:80"
+
+volumes:
+  pgdata:
