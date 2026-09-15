@@ -4,6 +4,7 @@
 #   docker compose -f docker-compose.prod.yml logs -f backend
 # Ka spolja je otvoren samo frontend/nginx, na portu HTTP_PORT iz .env (podrazumevano 80);
 # ostali servisi se vide samo unutar Docker mreze, po imenima servisa.
+# Aplikacija je dostupna pod http://<host>:<HTTP_PORT>/livequiz/ (APP_BASE_PATH).
 services:
   postgres:
     image: postgres:16
@@ -19,10 +20,6 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
-
-  redis:
-    image: redis:7
-    restart: unless-stopped
 
   rabbitmq:
     image: rabbitmq:3-management
@@ -40,28 +37,31 @@ services:
 
   backend:
     image: ${DOCKERHUB_USER}/livequiz-backend:${APP_VERSION:-latest}
+    build: ./backend        # lokalno: `compose build`; na serveru sa Dockerom: `compose pull`
     restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
-      redis:
-        condition: service_started
     environment:
       SPRING_PROFILES_ACTIVE: prod
       DB_URL: jdbc:postgresql://postgres:5432/livequiz
       DB_USERNAME: livequiz
       DB_PASSWORD: ${DB_PASSWORD}
-      REDIS_HOST: redis
+      APP_BASE_PATH: ${APP_BASE_PATH}
+      WS_BROKER_MODE: ${WS_BROKER_MODE:-relay}
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
-      JOIN_BASE_URL: ${PUBLIC_URL}/join
-      MEDIA_PUBLIC_BASE_URL: ${PUBLIC_URL}
+      # Sve tri se sklapaju iz PUBLIC_URL (samo origin) + APP_BASE_PATH; WS origin provera
+      # poredi samo origin (bez putanje), zato tu ide PUBLIC_URL bez prefiksa.
+      JOIN_BASE_URL: ${PUBLIC_URL}${APP_BASE_PATH}/join
+      MEDIA_PUBLIC_BASE_URL: ${PUBLIC_URL}${APP_BASE_PATH}
       WS_ALLOWED_ORIGINS: ${PUBLIC_URL}
 
   frontend:
     image: ${DOCKERHUB_USER}/livequiz-frontend:${APP_VERSION:-latest}
+    build: ./frontend
     restart: unless-stopped
     depends_on:
       - backend

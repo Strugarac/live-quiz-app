@@ -118,10 +118,17 @@ export function LiveQuestionPanel({
 
                   <div className="relative flex items-center justify-between gap-4">
                     <span
-                      className={`text-sm ${showCorrect ? 'font-semibold text-emerald-900' : 'text-slate-700'}`}
+                      className={`min-w-0 flex-1 text-sm ${showCorrect ? 'font-semibold text-emerald-900' : 'text-slate-700'}`}
                     >
                       {showCorrect && <span aria-label="Correct answer">✓ </span>}
-                      {option.text ?? '(image)'}
+                      {option.text}
+                      {option.imageUrl && (
+                        <img
+                          src={option.imageUrl}
+                          alt=""
+                          className={`max-h-32 rounded-lg object-contain ${option.text || showCorrect ? 'mt-2' : ''}`}
+                        />
+                      )}
                     </span>
                     {closed && chosen !== undefined && (
                       <span className="shrink-0 text-xs font-semibold text-slate-500">

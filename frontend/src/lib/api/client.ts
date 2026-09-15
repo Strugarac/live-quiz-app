@@ -8,7 +8,8 @@ import type { ApiErrorBody } from './types'
  * the credential. Nothing else in the app talks to `fetch` directly.
  */
 
-const BASE_URL = '/api'
+// Vite's `base` ends with a slash: '/api' in development, '/livequiz/api' on the server.
+const BASE_URL = `${import.meta.env.BASE_URL}api`
 
 export class ApiError extends Error {
   readonly status: number

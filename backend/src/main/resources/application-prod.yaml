@@ -3,14 +3,20 @@ spring:
     url: ${DB_URL}
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
-  data:
-    redis:
-      host: ${REDIS_HOST}
-      port: ${REDIS_PORT:6379}
   jpa:
     show-sql: false
+
+server:
+  servlet:
+    # Aplikacija na serveru zivi pod https://<host>/livequiz/ (reverse proxy); mora da se
+    # poklapa sa VITE_BASE_PATH u frontend/.env.production.
+    context-path: ${APP_BASE_PATH:/livequiz}
 
 app:
   websocket:
     # Zamenjuje localhost/LAN listu iz application.yaml; vise adresa razdvojiti zarezom.
     allowed-origins: ${WS_ALLOWED_ORIGINS}
+    broker:
+      # "relay" (RabbitMQ, vise instanci) ili "simple" (ugradjeni broker, jedna instanca -
+      # dovoljno za fakultetski server bez RabbitMQ-a).
+      mode: ${WS_BROKER_MODE:relay}

@@ -20,7 +20,8 @@ function NotFound() {
 export default function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
+      {/* basename follows Vite's `base`, so routes work both at / (dev) and at /livequiz/ (server). */}
+      <BrowserRouter basename={import.meta.env.BASE_URL}>
         <Routes>
           {/* Participant client. Deliberately outside the professor layout and RequireAuth:
               students arrive from a QR code with only a join token, never a login. This is
