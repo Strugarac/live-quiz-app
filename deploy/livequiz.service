@@ -1,0 +1,22 @@
+# systemd unit za backend - kopirati u /etc/systemd/system/livequiz.service
+#   sudo systemctl daemon-reload && sudo systemctl enable --now livequiz
+#   sudo systemctl status livequiz
+#   sudo journalctl -u livequiz -f
+[Unit]
+Description=Live Quiz backend (Spring Boot)
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+User=livequiz
+Group=livequiz
+WorkingDirectory=/opt/livequiz
+EnvironmentFile=/opt/livequiz/livequiz.env
+# -Xmx ogranicava heap; ceo proces uzima ~150 MB preko toga.
+ExecStart=/usr/bin/java -Xmx512m -jar /opt/livequiz/backend.jar
+SuccessExitStatus=143
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

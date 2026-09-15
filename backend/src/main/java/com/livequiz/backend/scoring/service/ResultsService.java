@@ -3,6 +3,7 @@ package com.livequiz.backend.scoring.service;
 import com.livequiz.backend.live.domain.ParticipantAnswer;
 import com.livequiz.backend.live.repository.ParticipantAnswerRepository;
 import com.livequiz.backend.live.service.LiveMapper;
+import com.livequiz.backend.media.service.ImageUrlResolver;
 import com.livequiz.backend.participant.domain.Participant;
 import com.livequiz.backend.participant.repository.ParticipantRepository;
 import com.livequiz.backend.quiz.domain.AnswerOption;
@@ -39,15 +40,18 @@ public class ResultsService {
     private final ParticipantRepository participantRepository;
     private final ScoringService scoringService;
     private final LiveMapper liveMapper;
+    private final ImageUrlResolver imageUrls;
 
     public ResultsService(ParticipantAnswerRepository answerRepository,
                           ParticipantRepository participantRepository,
                           ScoringService scoringService,
-                          LiveMapper liveMapper) {
+                          LiveMapper liveMapper,
+                          ImageUrlResolver imageUrls) {
         this.answerRepository = answerRepository;
         this.participantRepository = participantRepository;
         this.scoringService = scoringService;
         this.liveMapper = liveMapper;
+        this.imageUrls = imageUrls;
     }
 
     @Transactional(readOnly = true)
@@ -175,7 +179,8 @@ public class ResultsService {
             }
         }
         List<OptionBreakdown> options = question.getOptions().stream()
-                .map(o -> new OptionBreakdown(o.getId(), o.getText(), o.isCorrect(), chosen.getOrDefault(o.getId(), 0L)))
+                .map(o -> new OptionBreakdown(o.getId(), o.getText(), imageUrls.toPublicUrl(o.getImageUrl()),
+                        o.isCorrect(), chosen.getOrDefault(o.getId(), 0L)))
                 .toList();
 
         List<FreeTextEntry> freeText = question.getType() != QuestionType.FREE_TEXT ? List.of()

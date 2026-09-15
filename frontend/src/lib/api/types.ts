@@ -176,6 +176,7 @@ export interface LeaderboardPayload {
 export interface OptionBreakdown {
   optionId: UUID
   text: string | null
+  imageUrl: string | null
   correct: boolean
   chosenCount: number
 }

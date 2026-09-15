@@ -21,8 +21,9 @@ export interface LiveClient {
 
 function brokerUrl(): string {
   const scheme = window.location.protocol === 'https:' ? 'wss' : 'ws'
-  // Same origin, so the Vite dev proxy forwards this to the backend's /ws endpoint.
-  return `${scheme}://${window.location.host}/ws`
+  // Same origin, so the Vite dev proxy (or nginx on the server) forwards this to the
+  // backend's /ws endpoint; BASE_URL ends with a slash ('/' in dev, '/livequiz/' on the server).
+  return `${scheme}://${window.location.host}${import.meta.env.BASE_URL}ws`
 }
 
 /**

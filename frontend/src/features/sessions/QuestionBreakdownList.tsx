@@ -4,6 +4,7 @@ import { Badge, Card, CardHeader, ChevronIcon } from '../../components/ui/Feedba
 import { StackedShareBar, StatTile } from '../../components/ui/charts/StatTile'
 import { chartColors } from '../../components/ui/charts/chartTheme'
 import { QUESTION_TYPE_LABELS } from '../quizzes/quizLabels'
+import { optionLetter } from '../join/optionColors'
 
 interface QuestionBreakdownListProps {
   questions: QuestionBreakdown[]
@@ -204,9 +205,18 @@ function OptionDistribution({
                 style={{ width: `${(option.chosenCount / maxChosen) * 100}%` }}
               />
               <div className="relative flex items-center justify-between gap-4 text-sm">
-                <span className={showCorrect ? 'font-semibold text-emerald-900' : 'text-slate-700'}>
+                <span
+                  className={`min-w-0 flex-1 ${showCorrect ? 'font-semibold text-emerald-900' : 'text-slate-700'}`}
+                >
                   {showCorrect && <span aria-label="Correct answer">✓ </span>}
-                  {option.text ?? '(image)'}
+                  {option.text}
+                  {option.imageUrl && (
+                    <img
+                      src={option.imageUrl}
+                      alt=""
+                      className={`max-h-24 rounded-lg object-contain ${option.text || showCorrect ? 'mt-2' : ''}`}
+                    />
+                  )}
                 </span>
                 <span className="shrink-0 text-xs font-semibold text-slate-500">
                   {option.chosenCount}
@@ -257,8 +267,12 @@ function ParticipantAnswers({
     return null
   }
 
+  // Image-only options have no text to show in a table cell, so they go by their letter.
   const optionText = new Map(
-    question.options.map((option) => [option.optionId, option.text ?? '(image)']),
+    question.options.map((option, index) => [
+      option.optionId,
+      option.text ?? `Option ${optionLetter(index)}`,
+    ]),
   )
   const graded = !surveyMode && question.type !== 'FREE_TEXT'
 

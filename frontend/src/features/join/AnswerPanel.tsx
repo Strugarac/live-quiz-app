@@ -120,12 +120,12 @@ export function AnswerPanel({
                     {gradedReveal && isCorrect ? '✓' : optionLetter(index)}
                   </span>
                   <span className="min-w-0 flex-1">
-                    {option.text ?? '(image)'}
+                    {option.text}
                     {option.imageUrl && (
                       <img
                         src={option.imageUrl}
                         alt=""
-                        className="mt-2 max-h-24 rounded-lg bg-white/20 object-contain"
+                        className={`max-h-24 rounded-lg bg-white/20 object-contain ${option.text ? 'mt-2' : ''}`}
                       />
                     )}
                   </span>
